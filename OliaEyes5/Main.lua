@@ -124,18 +124,3 @@ function f:onUpdate(sinceLastUpdate)
 	end
 end
 f:SetScript("OnUpdate",f.onUpdate)
-
-
-local example = {
-'Mark of the Wild',
-}
-
-function tst()
-	print(jungle.ReCastCyclone('target', -0.2))
-end
-
-
-function tst2()
-	local unitCache = jungle.unitCache
-	print((IsPlayerSpell(155675) and not jungle.unitCacheBuff('player', 'Rejuvenation (Germination)', '_PLAYER')))
-end

@@ -5,7 +5,9 @@ Cast.lua
 Rotation.lua
 GameData.lua
 UnitsData.lua
-Default.lua
+Core/Spell.lua
+Core/Aura.lua
+Core/Unit.lua
 Stopcast.lua
 LosCheck.lua
 DRreturns.lua
@@ -23,3 +25,4 @@ Routines/Shaman.lua
 Routines/Warlock.lua
 Routines/Warrior.lua
 Main.lua
+Tests.lua
