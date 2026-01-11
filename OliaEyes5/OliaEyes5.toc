@@ -1,19 +1,29 @@
 Offsets.lua
 Color.lua
 Pixels.lua
-Cast.lua
-Rotation.lua
-GameData.lua
-UnitsData.lua
+
+# --- CORE LIBRARIES (Load these first!) ---
 Core/Spell.lua
 Core/Aura.lua
 Core/Unit.lua
+# ------------------------------------------
+
+# --- LOGIC & CLASSES ---
+Cast.lua
+Rotation.lua
+Core/Engine.lua
+
+# --- DATA & HELPERS ---
+GameData.lua
+UnitsData.lua
 Stopcast.lua
 LosCheck.lua
 DRreturns.lua
 Debug.lua
 CastomSpellCooldown.lua
 ShadowCrashHelper.lua
+
+# --- ROUTINES ---
 Routines/DeathKnight.lua
 Routines/Druid.lua
 Routines/Hunter.lua
@@ -24,5 +34,7 @@ Routines/Rogue.lua
 Routines/Shaman.lua
 Routines/Warlock.lua
 Routines/Warrior.lua
+
+# --- BOOTSTRAP ---
 Main.lua
 Tests.lua

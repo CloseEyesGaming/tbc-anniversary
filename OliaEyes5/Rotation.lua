@@ -1,6 +1,6 @@
 local Jungle, jungle = ...
 
--- Utility function to get the minimum value in a table (unused in this class currently)
+-- Utility (preserved)
 local function getMinValue(tbl)
     local key = next(tbl)
     local min = tbl[key]
@@ -12,17 +12,15 @@ local function getMinValue(tbl)
     return min
 end
 
--- Rotation class definition
+-- Rotation Class
 local Rotation = {}
 function Rotation:new()
     local self = {}
     setmetatable(self, { __index = Rotation })
-
-    -- print("Rotation instance created")
     return self
 end
 
--- General condition evaluation
+-- Condition Evaluator
 function Rotation:condition(rotations, pix, _target)
     local tbl = nil
     for i = 1, #rotations do
@@ -36,29 +34,26 @@ function Rotation:condition(rotations, pix, _target)
     return false
 end
 
--- Main rotation logic
+-- MAIN ROTATION (Refactored for Zero-Allocation)
 function Rotation:rotate(rotations, pix)
     LOS_CONTEXT_TARGET = 'focus'
-    local _spell, _target, _previousTarget, cast
-    local value = math.huge -- Lowest priority value
+    local _spell, _target, _previousTarget
+    local value = math.huge 
     local life = math.huge
     local previousLife = math.huge
-	local pixel_reset = jungle.Pixel:new({0,0,0}, pix)
-	pixel_reset:clear()
 
+    -- Note: Engine.lua now handles the pixel clear at the start of the frame.
+    
     -- Loop through each rotation step
     for _, rotation in ipairs(rotations) do
-        -- print("Checking rotation:", tostring(rotation))
-
+        
         -- Check each unit in the cache
         for unit, unitData in pairs(jungle.unitCache) do
-            -- print("Checking unit:", unit)
             if jungle.isUnitAvailable(unit) and UnitIsFriend('player', unit) then
                 local conditionResult = self:condition({rotation}, pix, unit)
 
                 -- Process the condition
                 if conditionResult then
-                    -- print(string.format("Condition met for unit %s: Spell=%s Priority=%d", unit, conditionResult[1], conditionResult[3]))
                     if value > conditionResult[3] then
                         value = conditionResult[3]
                         _target = unit
@@ -74,8 +69,6 @@ function Rotation:rotate(rotations, pix)
                     elseif life < previousLife then
                         _previousTarget = unit
                     end
-                else
-                    -- print("Condition not met for unit:", unit)
                 end
             end
         end
@@ -88,22 +81,25 @@ function Rotation:rotate(rotations, pix)
         -- Cast the spell if a valid target and spell exist
         if UnitExists(_target) then
             LOS_CONTEXT_TARGET_NAME = UnitName(_target)
-            cast = jungle.Cast:new(_spell, _target, pix)
+            
+            -- [[ STATIC CAST EXECUTION ]]
             if jungle.isDebug then
                 local framerate = GetFramerate()
                 jungle.debugAction(1, 1, 1, 1, "Casting: ".._spell..' -> '.._target.."\n fps: "..floor(framerate))
             end
-            return cast:cast()
+            
+            -- Direct call to static library (No memory allocation)
+            return jungle.Cast:CastSpell(_spell, _target, pix)
         end
     end
     -- No valid action found
     return false
 end
 
--- DPS rotation logic
+-- DPS ROTATION
 function Rotation:dpsRotate(rotations, pix)
     LOS_CONTEXT_TARGET = 'target'
-    local _spell, _target, cast
+    local _spell, _target
     local value = math.huge
 
     -- Check the target for DPS conditions
@@ -119,20 +115,21 @@ function Rotation:dpsRotate(rotations, pix)
     -- Cast the spell if a valid target and spell exist
     if UnitExists(_target) then
         LOS_CONTEXT_TARGET_NAME = UnitName(_target)
-        cast = jungle.Cast:new(_spell, _target, pix)
+        
+        -- [[ STATIC CAST EXECUTION ]]
         if jungle.isDebug then
             local framerate = GetFramerate()
             jungle.debugAction(1, 1, 1, 1, "Casting: ".._spell..' -> '.._target.."\n fps: "..floor(framerate))
         end
-        return cast:cast()
+        return jungle.Cast:CastSpell(_spell, _target, pix)
     end
     return false
 end
 
--- Arena rotation logic
+-- ARENA ROTATION
 function Rotation:arenaRotate(rotations, pix)
     LOS_CONTEXT_TARGET = 'focus'
-    local _spell, _target, cast
+    local _spell, _target
 
     -- Check each unit in the cache
     for unit, unitData in pairs(jungle.unitCache) do
@@ -149,15 +146,15 @@ function Rotation:arenaRotate(rotations, pix)
     -- Cast the spell if a valid target and spell exist
     if UnitExists(_target) then
         LOS_CONTEXT_TARGET_NAME = UnitName(_target)
-        cast = jungle.Cast:new(_spell, _target, pix)
+        
+        -- [[ STATIC CAST EXECUTION ]]
         if jungle.isDebug then
             local framerate = GetFramerate()
             jungle.debugAction(1, 1, 1, 1, "Casting: ".._spell..' -> '.._target.."\n fps: "..floor(framerate))
         end
-        return cast:cast()
+        return jungle.Cast:CastSpell(_spell, _target, pix)
     end
     return false
 end
 
--- Assign Rotation to the jungle namespace
 jungle.Rotation = Rotation
