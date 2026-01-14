@@ -18,56 +18,110 @@ end
 jungle.IsInList = IsInList
 
 --------------------------------------------------------------------------------
+-- OPTIMIZATION HELPERS (Table Recycling)
+--------------------------------------------------------------------------------
+
+local function InitUnitTable()
+    -- Create the complex table structure ONCE per unit
+    return {
+        identificator = 0,
+        isMe = false,
+        isInCombat = false,
+        currLife = 0,
+        threatStatus = 0,
+        isTank = false,
+        auras = {
+            debuffs = {
+                all = {},
+                magic = {},
+                curse = {},
+                poison = {},
+                disease = {},
+                slow = {},
+                root = {},
+                freedom = {},
+                unitIgnore = {},
+            },
+            buffs = {
+                player = {},
+                nonplayer = {},
+                slowImmunity = {},
+                unitIgnoreIfYouCaster = {},
+                unitIgnoreIfYouPhys = {},
+            },
+        },
+    }
+end
+
+local function ResetUnitCache(t)
+    -- Efficiently wipe sub-tables without deleting the main table
+    -- 1. Wipe Debuffs
+    for _, v in pairs(t.auras.debuffs) do
+        wipe(v)
+    end
+    -- 2. Wipe Buffs
+    for _, v in pairs(t.auras.buffs) do
+        wipe(v)
+    end
+end
+
+--------------------------------------------------------------------------------
 -- PARSING HELPERS
 --------------------------------------------------------------------------------
 
 local function debuffParse(unit)
+    -- Note: unitCache[unit] is guaranteed to exist and be clean here
+    local data = unitCache[unit].auras.debuffs
+    
 	AuraUtil.ForEachAura(unit, "HARMFUL", nil, function(debuff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
 		if IsInList(debuff, jungle.unitIgnoreDebuffs) then
-			unitCache[unit].auras.debuffs.unitIgnore[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.unitIgnore[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end	
 		if dispelType == 'Magic' then
-			unitCache[unit].auras.debuffs.magic[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.magic[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end						
 		if dispelType == 'Curse' then
-			unitCache[unit].auras.debuffs.curse[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.curse[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end						
 		if dispelType == 'Poison' then
-			unitCache[unit].auras.debuffs.poison[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.poison[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end						
 		if dispelType == 'Disease' then
-			unitCache[unit].auras.debuffs.disease[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.disease[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end						
 		if IsInList(debuff, jungle.slowDebuffs) then
-			unitCache[unit].auras.debuffs.slow[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.slow[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 		if IsInList(debuff, jungle.rootDebuffs) then
-			unitCache[unit].auras.debuffs.root[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.root[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 		if IsInList(debuff, jungle.toFreedomDebuffs) then
-			unitCache[unit].auras.debuffs.freedom[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			data.freedom[debuff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 	end)
 end
 
 local function buffParse(unit)
+    -- Note: unitCache[unit] is guaranteed to exist and be clean here
+    local data = unitCache[unit].auras.buffs
+
 	AuraUtil.ForEachAura(unit, "HELPFUL", nil, function(buff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
 		if source == 'player' then
-				unitCache[unit].auras.buffs.player[buff] = { count = count, expirationTime = expirationTime, source = source }
+				data.player[buff] = { count = count, expirationTime = expirationTime, source = source }
 				if buff == 'Beacon of Light' then
 					BEACONED_unit = unit
 				end
 			else
-				unitCache[unit].auras.buffs.nonplayer[buff] = { count = count, expirationTime = expirationTime, source = source }
+				data.nonplayer[buff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 		if IsInList(buff, jungle.slowImmunityBuffs) then
-			unitCache[unit].auras.buffs.slowImmunity[buff] = { count = count, expirationTime = expirationTime, source = source }
+			data.slowImmunity[buff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 		if IsInList(buff, jungle.unitIgnoreBuffCaster) then
-			unitCache[unit].auras.buffs.unitIgnoreIfYouCaster[buff] = { count = count, expirationTime = expirationTime, source = source }
+			data.unitIgnoreIfYouCaster[buff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 		if IsInList(buff, jungle.unitIgnoreBuffPhys) then
-			unitCache[unit].auras.buffs.unitIgnoreIfYouPhys[buff] = { count = count, expirationTime = expirationTime, source = source }
+			data.unitIgnoreIfYouPhys[buff] = { count = count, expirationTime = expirationTime, source = source }
 		end
 	end)
 end
@@ -78,41 +132,33 @@ local function auraParser(unit)
 end
 
 local function cacheUnitData(unit, _identificator)
-	unitCache[unit] = {
-		identificator = _identificator,
-		isMe = (UnitName(unit) == UnitName('player')),
-		isInCombat = UnitAffectingCombat(unit),
-		currLife = jungle.LifePercent(unit),
-		auras = {
-			debuffs = {
-				all = {},
-				magic = {},
-				curse = {},
-				poison = {},
-				disease = {},
-				slow = {},
-				root = {},
-				freedom = {},
-				unitIgnore = {},
-			},
-			buffs = {
-				player = {},
-				nonplayer = {},
-				slowImmunity = {},
-				unitIgnoreIfYouCaster = {},
-				unitIgnoreIfYouPhys = {},
-			},
-		},
-		threatStatus = UnitThreatSituation(unit),
-		isTank = UnitGroupRolesAssigned(unit)=='TANK',
-	}
+    -- OPTIMIZATION: Check if table exists. If so, recycle it.
+    if not unitCache[unit] then
+        unitCache[unit] = InitUnitTable()
+    else
+        ResetUnitCache(unitCache[unit])
+    end
+
+    local u = unitCache[unit]
+    
+    -- Update primitives directly
+	u.identificator = _identificator
+	u.isMe = (UnitName(unit) == UnitName('player'))
+	u.isInCombat = UnitAffectingCombat(unit)
+	u.currLife = jungle.LifePercent(unit)
+	u.threatStatus = UnitThreatSituation(unit)
+	u.isTank = UnitGroupRolesAssigned(unit)=='TANK'
+    
+    -- Auras are handled by parser calling into u.auras
 end
 jungle.cacheUnitData = cacheUnitData
 
 local function clearCacheData(identificator)
+  -- Remove stale units that were NOT updated in the current cycle
   for unitName, unitData in pairs(unitCache) do
     if unitData.identificator ~= identificator then
       unitCache[unitName] = nil
+      -- Note: This might clear globals aggressively, but preserving original logic behavior here
 	  BEACONED_FRIEND = ''
 	  TO_BEACON = nil
     end
@@ -124,7 +170,10 @@ local function cacheEveryUnit(_identificator)
     local groupType
 	local player = false 
 	local _, instanceType = IsInInstance()
-	clearCacheData(identificator)
+	
+    -- FLOW CHANGE: Do NOT clear first. Update valid units, THEN clear stale ones.
+    -- This allows recycling of tables.
+    
     if UnitExists('raid1') then
         groupType = 'raid'
     elseif UnitExists('party1') then
@@ -160,6 +209,9 @@ local function cacheEveryUnit(_identificator)
 			end
 		end
 	end
+    
+    -- Now prune anyone who wasn't seen (old ID)
+    clearCacheData(identificator)
 end
 
 local function updateUnitsData()
