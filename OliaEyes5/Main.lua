@@ -28,3 +28,26 @@ end
 f:SetScript("OnUpdate", f.onUpdate)
 -- Force initialization on load
 if jungle.Engine then jungle.Engine:Initialize() end
+
+-- [COMMAND HANDLER]
+SLASH_OLIA1 = "/olia"
+SlashCmdList["OLIA"] = function(msg)
+    -- ERROR FIXED: '...' line removed here. 'jungle' is already visible.
+    local cmd = msg:lower()
+    
+    if cmd == "debug" then
+        if jungle.Hotkeys then
+            jungle.Hotkeys:ToggleDebug()
+        else
+            print("Hotkeys module not loaded.")
+        end
+    elseif cmd == "dump" then
+        if jungle.Hotkeys then
+            jungle.Hotkeys:DumpBindings()
+        else
+            print("Hotkeys module not loaded.")
+        end
+    else
+        print("|cFF00FFFF[OliaEyes]|r Commands: /olia debug, /olia dump")
+    end
+end

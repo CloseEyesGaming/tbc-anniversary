@@ -1,3 +1,10 @@
+## Interface: 20504
+## Title: OliaEyes5
+## Notes: Automation Core
+## Author: Olia
+## Version: 5.0
+## SavedVariables: OliaEyes_Export
+
 Offsets.lua
 Color.lua
 Pixels.lua
@@ -6,6 +13,7 @@ Pixels.lua
 Core/Spell.lua
 Core/Aura.lua
 Core/Unit.lua
+Core/Hotkeys.lua
 # ------------------------------------------
 
 # --- LOGIC & CLASSES ---
