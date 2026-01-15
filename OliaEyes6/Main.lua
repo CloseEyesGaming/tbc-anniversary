@@ -5,6 +5,8 @@ function run_thread1() jungle.Engine:SetThread(1) end
 function run_thread2() jungle.Engine:SetThread(2) end
 function run_thread3() jungle.Engine:SetThread(3) end
 function run_thread4() jungle.Engine:SetThread(4) end
+function run_thread5() jungle.Engine:SetThread(5) end
+function run_thread6() jungle.Engine:SetThread(6) end
 
 -- Initialize Global Tick
 jungle.currentTick = 0
@@ -13,7 +15,7 @@ jungle.currentTick = 0
 local f = CreateFrame("Frame");
 function f:onUpdate(sinceLastUpdate)
     self.sinceLastUpdate = (self.sinceLastUpdate or 0) + sinceLastUpdate;
-    if ( self.sinceLastUpdate >= 0.05 ) then -- 20Hz Tick
+    if ( self.sinceLastUpdate >= 0.01 ) then -- 20Hz Tick
         
         -- Delegate to Singleton Engine
         if jungle.Engine then

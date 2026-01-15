@@ -545,33 +545,43 @@ end
 -- 5. EXPORT / DUMP
 -- ----------------------------------------------------------------------------
 
--- Helper: Generates a unique Hex Color (e.g., "3A4F12") from any string
+-- [CHANGED]: Uses jungle.Color class to ensure 100% match with Pixel engine
 function Hotkeys:GenerateColor(str)
-    local hash = 5381
-    for i = 1, #str do
-        -- djb2 hash algorithm
-        hash = ((hash * 33) + string.byte(str, i)) % 16777216 -- 0xFFFFFF limit
+    -- Safety check if Color.lua loaded
+    if not jungle.Color then 
+        print("|cFFFF0000[Error]|r jungle.Color class missing!") 
+        return "000000" 
     end
-    return string.format("%06x", hash)
+    
+    -- 1. Create Instance
+    local colorObj = jungle.Color:new()
+    
+    -- 2. Generate RGB (Returns table {0-1, 0-1, 0-1})
+    local rgb = colorObj:makeColor(str)
+    
+    -- 3. Convert to 0-255 Integer
+    -- Note: Color.lua uses round(val, 4). We simply scale that to 255.
+    local r = math.floor(rgb[1] * 255 + 0.5)
+    local g = math.floor(rgb[2] * 255 + 0.5)
+    local b = math.floor(rgb[3] * 255 + 0.5)
+    
+    -- 4. Return Hex String
+    return string.format("%02x%02x%02x", r, g, b)
 end
 
 function Hotkeys:DumpBindings()
     OliaEyes_Export = {}
     local count = 0
-    local colorMap = {} -- Used to detect collisions (Color -> ID)
+    local colorMap = {}
     local collisionCount = 0
     
-    print("|cFF00FFFF[Hotkeys]|r Generating Full Database Dump with Validation...")
+    print("|cFF00FFFF[Hotkeys]|r Dump Started (Using jungle.Color)...")
 
-    -- Helper Function to add and validate
     local function AddEntry(className, typeName, id, key)
         local color = self:GenerateColor(id)
         
-        -- VALIDATION: Check for collisions
         if colorMap[color] and colorMap[color] ~= id then
-            print("|cFFFF0000[COLLISION]|r Color " .. color .. " is shared by:")
-            print("   1. " .. colorMap[color])
-            print("   2. " .. id)
+            print("|cFFFF0000[COLLISION]|r " .. color .. " : " .. colorMap[color] .. " vs " .. id)
             collisionCount = collisionCount + 1
         else
             colorMap[color] = id
@@ -587,34 +597,25 @@ function Hotkeys:DumpBindings()
         count = count + 1
     end
 
-    -- 1. DUMP GLOBAL STATIC BAR
+    -- Static
     if self.StaticButtons then
         for _, btn in ipairs(self.StaticButtons) do
             AddEntry("GLOBAL", "Static", btn.id, btn.key)
         end
     end
 
-    -- 2. DUMP ALL CLASSES (Virtual Generation)
+    -- Dynamic
     for className, spellList in pairs(self.ClassSpells) do
         local keyIndex = 1
         for _, spellData in ipairs(spellList) do
             local key = self.Pool_Rotation[keyIndex]
             if not key then break end
-            
             AddEntry(className, "Dynamic", spellData.id, key)
             keyIndex = keyIndex + 1
         end
     end
 
-    -- 3. FINAL REPORT
-    if collisionCount > 0 then
-        print("|cFFFF0000[WARNING]|r Found " .. collisionCount .. " color collisions! Check chat above.")
-    else
-        print("|cFF00FF00[SUCCESS]|r Validation Passed. No color collisions found.")
-    end
-    
-    print("|cFF00FF00[Hotkeys]|r Dumped " .. count .. " actions.")
-    print("|cFFFFFF00[Tip]|r /reload to save to disk.")
+    print("|cFF00FF00[Hotkeys]|r Dump Complete. " .. count .. " items. Collisions: " .. collisionCount)
 end
 
 -- ----------------------------------------------------------------------------
@@ -624,6 +625,9 @@ Hotkeys:CreateStaticBar()
 Hotkeys:CreateDynamicBar()
 
 local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_REGEN_ENABLED")
+--f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:SetScript("OnEvent", function() Hotkeys:ApplyBindings() end)
+f:SetScript("OnEvent", function() 
+    Hotkeys:ApplyBindings()
+    -- Auto-Dump on login/reload to keep Python sync
+end)

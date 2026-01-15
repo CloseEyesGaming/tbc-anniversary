@@ -45,7 +45,7 @@ end
 function Pixel:clear()
     if self.pix == 1 then
         if HelloWorld1.texture then
-            HelloWorld1.texture:SetColorTexture(0, 0, 0)
+            HelloWorld1.texture:SetColorTexture(0.0863, 0.2549, 0.0392)
             return true
         end
     end

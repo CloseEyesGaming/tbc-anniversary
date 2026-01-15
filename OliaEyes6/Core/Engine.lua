@@ -41,7 +41,7 @@ function Engine:ProcessRotation()
     
     -- DRUID LOGIC (Moved from Main.lua)
     if engClass == "DRUID" then
-        if C_Spell.GetSpellInfo('Lifebloom') then
+        if C_Spell.GetSpellInfo('Rejuvenation') then
             local rot = self.rotation -- Use cached instance
             
             if self.activeThread == 1 then
@@ -59,7 +59,11 @@ function Engine:ProcessRotation()
             elseif self.activeThread == 3 then
                 return -- Placeholder
             elseif self.activeThread == 4 then
-                if rot:dpsRotate({jungle.druidManualCC,}, 1) then return end
+                if rot:dpsRotate({jungle.druidManualCC,}, 1) then return end            
+			elseif self.activeThread == 5 then
+                if rot:dpsRotate({jungle.druidDpsBasic,}, 1) then return end  
+			elseif self.activeThread == 6 then
+                if rot:rotate({jungle.druidBuff,}, 1) then return end
             end
         end
     

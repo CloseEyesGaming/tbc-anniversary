@@ -339,7 +339,15 @@ local function druidDpsBasic(_target)
 			),
 			1, 
 			0 
-		},		
+		},
+		[3]= {'',
+			'Attack',
+			(
+				true
+			),
+			1, 
+			0 
+		},			
 	}
 	return set
 end
@@ -560,4 +568,29 @@ local function druidManualCC(_target)
 end
 jungle.druidManualCC = druidManualCC
 
+-- TBC ACTUAL ROTATION
+local function druidBuff(_friend)
+    local set = {
+		[1]= {'',
+			'Mark of the Wild',
+			(
+				jungle.ReadyCastSpell('Mark of the Wild', _friend)
+				and (not jungle.unitCacheBuff(_friend, 'Mark of the Wild') and not jungle.unitCacheBuff(_friend, 'Gift of the Wild'))
+			),
+			1, 
+			0 
+		},
+		[2]= {'',
+			'Thorns',
+			(
+				jungle.ReadyCastSpell('Thorns', _friend)
+				and not jungle.unitCacheBuff(_friend, 'Thorns')
+			),
+			1, 
+			0 
+		},
+	}
+	return set
+end
+jungle.druidBuff = druidBuff
 
