@@ -319,41 +319,6 @@ end
 jungle.druidPreHot = druidPreHot
 
 
-local function druidDpsBasic(_target)
-    local set = {
-		[1]= {'',
-			'Moonfire',
-			(
-				jungle.ReadyCastSpell('Moonfire', _target)
-				and not jungle.Debuff('Moonfire', _target, '|PLAYER')
-
-			),
-			1, 
-			0 
-		},		
-		[2]= {'',
-			'Wrath',
-			(
-				jungle.ReadyCastSpell('Wrath', _target)
-				and GetUnitSpeed('player')==0
-			),
-			1, 
-			0 
-		},
-		[3]= {'',
-			'Attack',
-			(
-				true
-			),
-			1, 
-			0 
-		},			
-	}
-	return set
-end
-jungle.druidDpsBasic = druidDpsBasic
-
-
 local function druidDefaultAssist(_friend)
     local set = {
 		[1]= {'',
@@ -594,3 +559,54 @@ local function druidBuff(_friend)
 end
 jungle.druidBuff = druidBuff
 
+
+local function druidDpsBasic(_target)
+    local set = {
+	--Caster Form
+		[1]= {'',
+			'Moonfire',
+			(	
+				GetShapeshiftForm()==0
+				and (UnitAffectingCombat('player') or GetUnitSpeed('player')~=0)
+				and jungle.ReadyCastSpell('Moonfire', _target)
+				and not jungle.Debuff('Moonfire', _target, '|PLAYER')
+
+			),
+			1, 
+			0 
+		},		
+		[2]= {'',
+			'Wrath',
+			(
+				GetShapeshiftForm()==0
+				and jungle.ReadyCastSpell('Wrath', _target)
+				and GetUnitSpeed('player')==0
+			),
+			1, 
+			0 
+		},
+	--Bear
+		[3]= {'',
+			'Maul',
+			(	
+				GetShapeshiftForm()==1
+				and jungle.ReadyCastSpell('Maul')
+				and not IsCurrentSpell(select(7, GetSpellInfo("Maul")))
+
+
+			),
+			1, 
+			0 
+		},		
+		[4]= {'',
+			'Attack',
+			(
+				not IsCurrentSpell(6603)
+			),
+			1, 
+			0 
+		},			
+	}
+	return set
+end
+jungle.druidDpsBasic = druidDpsBasic
