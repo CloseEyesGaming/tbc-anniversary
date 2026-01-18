@@ -62,6 +62,7 @@ Hotkeys.ClassSpells = {
         { id = "Swipe", icon = "Interface\\Icons\\Inv_Misc_MonsterClaw_03" },
         { id = "Bash", icon = "Interface\\Icons\\Ability_Druid_Bash" },
         { id = "Feral Charge", icon = "Interface\\Icons\\Ability_Hunter_Pet_Bear" },
+		{ id = "Claw", icon = "Interface\\Icons\\Ability_Druid_Rake" },
         
         -- Forms
         { id = "Cat Form", icon = "Interface\\Icons\\Ability_Druid_CatForm" },

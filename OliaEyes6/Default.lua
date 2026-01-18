@@ -1,0 +1,3 @@
+local Jungle, jungle = ...
+-- Logic moved to Core/Spell.lua, Core/Aura.lua, and Core/Unit.lua
+-- This file is intentionally empty.
