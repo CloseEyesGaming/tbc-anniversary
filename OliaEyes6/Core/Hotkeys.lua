@@ -2,19 +2,32 @@ local Jungle, jungle = ...
 jungle.Hotkeys = {}
 local Hotkeys = jungle.Hotkeys
 
--- ----------------------------------------------------------------------------
--- 1. DATA: GLOBAL ACTIONS & DEFAULTS (Static Bar)
--- ----------------------------------------------------------------------------
-Hotkeys.GlobalDefaults = {
-    -- A. THREAD SWITCHERS (Numpad 1-6)
-    { id = "Thread 1", macro = "/run run_thread1()", icon = "Interface\\Icons\\Spell_ChargePositive" },
-    { id = "Thread 2", macro = "/run run_thread2()", icon = "Interface\\Icons\\Spell_ChargeNegative" },
-    { id = "Thread 3", macro = "/run run_thread3()", icon = "Interface\\Icons\\Spell_ChargePositive" },
-    { id = "Thread 4", macro = "/run run_thread4()", icon = "Interface\\Icons\\Spell_ChargeNegative" },
-    { id = "Thread 5", macro = "/run run_thread5()", icon = "Interface\\Icons\\Spell_ChargePositive" },
-    { id = "Thread 6", macro = "/run run_thread6()", icon = "Interface\\Icons\\Spell_ChargeNegative" },
+-- 1. Initialize Debug State
+Hotkeys.DebugMode = false
 
-    -- B. USER ACTIONS
+-- Shared function that runs AFTER a button is clicked
+local function Debug_PostClick(self)
+    if Hotkeys.DebugMode then
+        local spell = self.debugName or "Unknown"
+        local key = self.debugKey or "Unknown"
+        local timestamp = date("%H:%M:%S")
+
+        print("|cff00ccff[Olia]|r DEBUG: [" .. spell .. "] via [" .. key .. "] at " .. timestamp)
+
+        if not OliaDebugLog then OliaDebugLog = {} end
+        table.insert(OliaDebugLog, {
+            ["timestamp"] = timestamp,
+            ["spell"] = spell,
+            ["key"] = key
+        })
+    end
+end
+
+-- ----------------------------------------------------------------------------
+-- 1. DATA: GLOBAL ACTIONS
+-- ----------------------------------------------------------------------------
+-- NOTE: Threads 1-6 are removed from here. They are hardcoded in CreateStaticBar.
+Hotkeys.GlobalDefaults = {
     { id = "Attack",      macro = "/startattack",        icon = "Interface\\Icons\\Inv_Sword_04" }, 
     { id = "Stopcasting", macro = "/stopcasting",        icon = "Interface\\Icons\\Spell_Shadow_Manaburn" },
     { id = "ClearFocus",  macro = "/clearfocus",         icon = "Interface\\Icons\\Spell_Shadow_SacrificialShield" },
@@ -30,7 +43,6 @@ Hotkeys.GlobalDefaults = {
 -- ----------------------------------------------------------------------------
 Hotkeys.ClassSpells = {
     ["DRUID"] = {
-        -- Balance / Resto Core
         { id = "Lifebloom", icon = "Interface\\Icons\\INV_Misc_Herb_Felblossom" },
         { id = "Rejuvenation", icon = "Interface\\Icons\\Spell_Nature_Rejuvenation" },
         { id = "Regrowth", icon = "Interface\\Icons\\Spell_Nature_ResistNature" },
@@ -48,8 +60,6 @@ Hotkeys.ClassSpells = {
         { id = "Barkskin", icon = "Interface\\Icons\\Spell_Nature_StoneSkin" },
         { id = "Nature's Swiftness", icon = "Interface\\Icons\\Spell_Nature_RavenForm" },
         { id = "Force of Nature", icon = "Interface\\Icons\\Ability_Druid_ForceOfNature" },
-        
-        -- Feral
         { id = "Mangle (Cat)", icon = "Interface\\Icons\\Ability_Druid_Mangle2" },
         { id = "Shred", icon = "Interface\\Icons\\Spell_Shadow_VampiricAura" },
         { id = "Rip", icon = "Interface\\Icons\\Ability_GhoulFrenzy" },
@@ -62,17 +72,13 @@ Hotkeys.ClassSpells = {
         { id = "Swipe", icon = "Interface\\Icons\\Inv_Misc_MonsterClaw_03" },
         { id = "Bash", icon = "Interface\\Icons\\Ability_Druid_Bash" },
         { id = "Feral Charge", icon = "Interface\\Icons\\Ability_Hunter_Pet_Bear" },
-		{ id = "Claw", icon = "Interface\\Icons\\Ability_Druid_Rake" },
-        
-        -- Forms
+        { id = "Claw", icon = "Interface\\Icons\\Ability_Druid_Rake" },
         { id = "Cat Form", icon = "Interface\\Icons\\Ability_Druid_CatForm" },
         { id = "Bear Form", icon = "Interface\\Icons\\Ability_Racial_BearForm" },
         { id = "Dire Bear Form", icon = "Interface\\Icons\\Ability_Racial_BearForm" },
         { id = "Travel Form", icon = "Interface\\Icons\\Ability_Druid_TravelForm" },
         { id = "Moonkin Form", icon = "Interface\\Icons\\Spell_Nature_ForceOfNature" },
         { id = "Tree of Life", icon = "Interface\\Icons\\Ability_Druid_TreeofLife" },
-        
-        -- Buffs & Utility
         { id = "Mark of the Wild", icon = "Interface\\Icons\\Spell_Nature_Regeneration" },
         { id = "Thorns", icon = "Interface\\Icons\\Spell_Nature_Thorns" },
         { id = "Gift of the Wild", icon = "Interface\\Icons\\Spell_Nature_Regeneration" },
@@ -81,7 +87,6 @@ Hotkeys.ClassSpells = {
         { id = "Abolish Poison", icon = "Interface\\Icons\\Spell_Nature_NullifyPoison_02" },
         { id = "Rebirth", icon = "Interface\\Icons\\Spell_Nature_Reincarnation" },
     },
-
     ["PRIEST"] = {
         { id = "Flash Heal", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
         { id = "Greater Heal", icon = "Interface\\Icons\\Spell_Holy_GreaterHeal" },
@@ -114,7 +119,6 @@ Hotkeys.ClassSpells = {
         { id = "Prayer of Shadow Protection", icon = "Interface\\Icons\\Spell_Holy_PrayerOfShadowProtection" },
         { id = "Inner Fire", icon = "Interface\\Icons\\Spell_Holy_InnerFire" },
     },
-
     ["SHAMAN"] = {
         { id = "Lightning Bolt", icon = "Interface\\Icons\\Spell_Nature_Lightning" },
         { id = "Chain Lightning", icon = "Interface\\Icons\\Spell_Nature_ChainLightning" },
@@ -137,7 +141,6 @@ Hotkeys.ClassSpells = {
         { id = "Bloodlust", icon = "Interface\\Icons\\Spell_Nature_BloodLust" },
         { id = "Heroism", icon = "Interface\\Icons\\Spell_Nature_BloodLust" },
     },
-
     ["PALADIN"] = {
         { id = "Flash of Light", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
         { id = "Holy Light", icon = "Interface\\Icons\\Spell_Holy_HolyBolt" },
@@ -162,7 +165,6 @@ Hotkeys.ClassSpells = {
         { id = "Blessing of Might", icon = "Interface\\Icons\\Spell_Holy_FistOfJustice" },
         { id = "Blessing of Wisdom", icon = "Interface\\Icons\\Spell_Holy_SealOfWisdom" },
     },
-
     ["MAGE"] = {
         { id = "Frostbolt", icon = "Interface\\Icons\\Spell_Frost_FrostBolt02" },
         { id = "Ice Lance", icon = "Interface\\Icons\\Spell_Frost_FrostBlast" },
@@ -193,7 +195,6 @@ Hotkeys.ClassSpells = {
         { id = "Molten Armor", icon = "Interface\\Icons\\Ability_Mage_MoltenArmor" },
         { id = "Mage Armor", icon = "Interface\\Icons\\Spell_MageArmor" },
     },
-
     ["WARLOCK"] = {
         { id = "Curse of Agony", icon = "Interface\\Icons\\Spell_Shadow_CurseOfSargeras" },
         { id = "Corruption", icon = "Interface\\Icons\\Spell_Shadow_AbominationExplosion" },
@@ -218,7 +219,6 @@ Hotkeys.ClassSpells = {
         { id = "Summon Felhunter", icon = "Interface\\Icons\\Spell_Shadow_SummonFelHunter" },
         { id = "Summon Felguard", icon = "Interface\\Icons\\Spell_Shadow_SummonFelGuard" },
     },
-
     ["ROGUE"] = {
         { id = "Sinister Strike", icon = "Interface\\Icons\\Spell_Shadow_RitualOfSacrifice" },
         { id = "Eviscerate", icon = "Interface\\Icons\\Ability_Rogue_Eviscerate" },
@@ -243,7 +243,6 @@ Hotkeys.ClassSpells = {
         { id = "Preparation", icon = "Interface\\Icons\\Spell_Shadow_AntiShadow" },
         { id = "Shadowstep", icon = "Interface\\Icons\\Ability_Rogue_Shadowstep" },
     },
-
     ["WARRIOR"] = {
         { id = "Mortal Strike", icon = "Interface\\Icons\\Ability_Warrior_SavageBlow" },
         { id = "Bloodthirst", icon = "Interface\\Icons\\Spell_Nature_BloodLust" },
@@ -268,7 +267,6 @@ Hotkeys.ClassSpells = {
         { id = "Demoralizing Shout", icon = "Interface\\Icons\\Ability_Warrior_WarCry" },
         { id = "Spell Reflection", icon = "Interface\\Icons\\Ability_Warrior_ShieldReflection" },
     },
-
     ["HUNTER"] = {
         { id = "Steady Shot", icon = "Interface\\Icons\\Ability_Hunter_SteadyShot" },
         { id = "Auto Shot", icon = "Interface\\Icons\\Ability_Whirlwind" },
@@ -301,51 +299,52 @@ Hotkeys.ClassSpells = {
 -- ----------------------------------------------------------------------------
 -- 3. KEY POOLS
 -- ----------------------------------------------------------------------------
+
 Hotkeys.Pool_Rotation = {
     -- CTRL Set (Spell Engine)
-    "CTRL-F1", "CTRL-F2", "CTRL-F3", "CTRL-F4", "CTRL-F5", "CTRL-F6", 
+    "CTRL-F1", "CTRL-F2", "CTRL-F3", "CTRL-F5", "CTRL-F6", 
     "CTRL-F7", "CTRL-F8", "CTRL-F9", "CTRL-F10", "CTRL-F11", "CTRL-F12",
     "CTRL-INSERT", "CTRL-DELETE", "CTRL-HOME", "CTRL-END", "CTRL-PAGEUP", "CTRL-PAGEDOWN",
-    "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT", "CTRL-MINUS", "CTRL-EQUALS", "CTRL-SPACE",
+    "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT", "CTRL-SPACE",
+    -- [NEW]: Allowed Letters
+    "CTRL-I", "CTRL-J", "CTRL-K", "CTRL-L", "CTRL-N", "CTRL-O", "CTRL-P", "CTRL-U", "CTRL-Y",
 
     -- SHIFT Set (Spell Engine)
-    "SHIFT-F1", "SHIFT-F2", "SHIFT-F3", "SHIFT-F4", "SHIFT-F5", "SHIFT-F6", 
+    "SHIFT-F1", "SHIFT-F2", "SHIFT-F3", "SHIFT-F5", "SHIFT-F6", 
     "SHIFT-F7", "SHIFT-F8", "SHIFT-F9", "SHIFT-F10", "SHIFT-F11", "SHIFT-F12",
     "SHIFT-INSERT", "SHIFT-DELETE", "SHIFT-HOME", "SHIFT-END", "SHIFT-PAGEUP", "SHIFT-PAGEDOWN",
-    "SHIFT-UP", "SHIFT-DOWN", "SHIFT-LEFT", "SHIFT-RIGHT", "SHIFT-MINUS", "SHIFT-EQUALS", "SHIFT-SPACE",
+    "SHIFT-UP", "SHIFT-DOWN", "SHIFT-LEFT", "SHIFT-RIGHT", "SHIFT-SPACE",
+    -- [NEW]: Allowed Letters
+    "SHIFT-I", "SHIFT-J", "SHIFT-K", "SHIFT-L", "SHIFT-N", "SHIFT-O", "SHIFT-P", "SHIFT-U", "SHIFT-Y",
+
+    -- [NEW]: Unmodified Specials
+    "[", "]", "\\", "'",
 }
 
 Hotkeys.Pool_Targeting = {
     -- 1. THREAD CONTROLS
-    "NUMPAD1", "NUMPAD2", "NUMPAD3", "NUMPAD4", "NUMPAD5", "NUMPAD6",
+    -- [REMOVED]: All NUMPAD keys removed. Bound manually in CreateStaticBar.
 
     -- 2. ALT Set (Static Focus Engine)
     "ALT-F1", "ALT-F2", "ALT-F3", "ALT-F5", "ALT-F6", 
     "ALT-F7", "ALT-F8", "ALT-F9", "ALT-F10", "ALT-F11", "ALT-F12",
     "ALT-INSERT", "ALT-DELETE", "ALT-HOME", "ALT-END", "ALT-PAGEUP", "ALT-PAGEDOWN",
-    "ALT-UP", "ALT-DOWN", "ALT-LEFT", "ALT-RIGHT", "ALT-MINUS", "ALT-EQUALS", "ALT-SPACE",
+    "ALT-UP", "ALT-DOWN", "ALT-LEFT", "ALT-RIGHT", "ALT-SPACE",
+    -- [NEW]: Allowed Letters (CRITICAL for capacity)
+    "ALT-I", "ALT-J", "ALT-K", "ALT-L", "ALT-N", "ALT-O", "ALT-P", "ALT-U", "ALT-Y",
 
-    -- 3. DOUBLE MODIFIERS
-    "CTRL-SHIFT-F1", "CTRL-SHIFT-F2", "CTRL-SHIFT-F3", "CTRL-SHIFT-F4", 
+    -- 3. DOUBLE MODIFIERS (F-Keys Only - Stable)
+    "CTRL-SHIFT-F1", "CTRL-SHIFT-F2", "CTRL-SHIFT-F3", 
     "CTRL-SHIFT-F5", "CTRL-SHIFT-F6", "CTRL-SHIFT-F7", "CTRL-SHIFT-F8", 
     "CTRL-SHIFT-F9", "CTRL-SHIFT-F10", "CTRL-SHIFT-F11", "CTRL-SHIFT-F12",
-    "CTRL-SHIFT-INSERT", "CTRL-SHIFT-DELETE", "CTRL-SHIFT-HOME", "CTRL-SHIFT-END", 
-    "CTRL-SHIFT-PAGEUP", "CTRL-SHIFT-PAGEDOWN", "CTRL-SHIFT-UP", "CTRL-SHIFT-DOWN", 
-    "CTRL-SHIFT-LEFT", "CTRL-SHIFT-RIGHT",
 
-    "ALT-SHIFT-F1", "ALT-SHIFT-F2", "ALT-SHIFT-F3", "ALT-SHIFT-F4", 
+    "ALT-SHIFT-F1", "ALT-SHIFT-F2", "ALT-SHIFT-F3", 
     "ALT-SHIFT-F5", "ALT-SHIFT-F6", "ALT-SHIFT-F7", "ALT-SHIFT-F8", 
     "ALT-SHIFT-F9", "ALT-SHIFT-F10", "ALT-SHIFT-F11", "ALT-SHIFT-F12",
-    "ALT-SHIFT-INSERT", "ALT-SHIFT-DELETE", "ALT-SHIFT-HOME", "ALT-SHIFT-END", 
-    "ALT-SHIFT-PAGEUP", "ALT-SHIFT-PAGEDOWN", "ALT-SHIFT-UP", "ALT-SHIFT-DOWN", 
-    "ALT-SHIFT-LEFT", "ALT-SHIFT-RIGHT",
 
-    "CTRL-ALT-F1", "CTRL-ALT-F2", "CTRL-ALT-F3", 
-    "CTRL-ALT-F5", "CTRL-ALT-F6", "CTRL-ALT-F7", "CTRL-ALT-F8", 
-    "CTRL-ALT-F9", "CTRL-ALT-F10", "CTRL-ALT-F11", "CTRL-ALT-F12",
-    "CTRL-ALT-INSERT", "CTRL-ALT-HOME", "CTRL-ALT-END", 
-    "CTRL-ALT-PAGEUP", "CTRL-ALT-PAGEDOWN", "CTRL-ALT-UP", "CTRL-ALT-DOWN", 
-    "CTRL-ALT-LEFT", "CTRL-ALT-RIGHT",
+    -- [REPLACED]: CTRL-ALT (Unreliable) -> CTRL-SHIFT-LETTERS (Stable)
+    "CTRL-SHIFT-I", "CTRL-SHIFT-J", "CTRL-SHIFT-K", "CTRL-SHIFT-L", 
+    "CTRL-SHIFT-N", "CTRL-SHIFT-O", "CTRL-SHIFT-P", "CTRL-SHIFT-U", "CTRL-SHIFT-Y",
 }
 
 -- ----------------------------------------------------------------------------
@@ -372,21 +371,42 @@ function Hotkeys:CreateStaticBar()
     local spacing = 2
     local columns = 8 
 
-    -- Helper to create button
-    local function CreateBtn(id, macroText, iconPath)
-        local key = self.Pool_Targeting[keyIndex]
-        if not key then return end
+    -- Universal Button Creator
+    -- If 'forcedKey' is provided, it uses it. Otherwise, it pulls from the Pool.
+    local function CreateBtn(id, macroText, iconPath, forcedKey)
+        local key = forcedKey
         
-        local btnName = "CA_Static_" .. keyIndex
+        -- If no forced key, grab next one from pool
+        if not key then
+            key = self.Pool_Targeting[keyIndex]
+            if not key then 
+                print("|cFFFF0000[Hotkeys]|r ERROR: Pool Exhausted at '" .. id .. "'")
+                return 
+            end
+            keyIndex = keyIndex + 1
+        end
+        
+        -- Generate name: Use fixed name for forced keys, indexed name for pool keys
+        local btnName
+        if forcedKey then
+             btnName = "CA_Static_" .. id:gsub(" ", "")
+        else
+             btnName = "CA_Static_" .. (keyIndex - 1)
+        end
+        
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
         btn:SetSize(btnSize, btnSize)
         btn:RegisterForClicks("AnyUp", "AnyDown")
         
-        -- Grid
-        local index = keyIndex - 1
-        local row = math.floor(index / columns)
-        local col = index % columns
-        btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(col * (btnSize + spacing)), -(row * (btnSize + spacing)))
+        -- Layout (Simple grid, threads separate)
+        if forcedKey then
+             btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 40, 0) -- Hidden/Offside for threads
+        else
+            local index = keyIndex - 2 -- Reset to 0-based from current index (since we inc'd)
+            local row = math.floor(index / columns)
+            local col = index % columns
+            btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(col * (btnSize + spacing)), -(row * (btnSize + spacing)))
+        end
         
         -- Visuals
         local t = btn:CreateTexture(nil, "ARTWORK")
@@ -413,13 +433,30 @@ function Hotkeys:CreateStaticBar()
         -- Logic
         btn:SetAttribute("type", "macro")
         btn:SetAttribute("macrotext", macroText)
+		
+		-- Store info for the debugger
+		btn.debugName = id 
+		btn.debugKey  = key 
+		
+		-- Attach listener (SKIP Threads)
+        if not string.find(id, "Thread") then
+		    btn:SetScript("PostClick", Debug_PostClick)
+        end
         
         table.insert(self.StaticButtons, { frame = btn, key = key, id = id })
         self.StaticBindings[id] = key
-        keyIndex = keyIndex + 1
     end
     
-    -- 1. Global Defaults
+    -- 0. HARDCODED THREADS (Num 1-6) - Does NOT use Pool
+    for i = 1, 6 do
+        local t_key = "NUMPAD"..i
+        local t_id = "Thread "..i
+        local t_macro = "/run run_thread"..i.."()"
+        local t_icon = (i % 2 == 1) and "Interface\\Icons\\Spell_ChargePositive" or "Interface\\Icons\\Spell_ChargeNegative"
+        CreateBtn(t_id, t_macro, t_icon, t_key)
+    end
+
+    -- 1. Global Defaults (Attack, Stopcast, etc)
     for _, data in ipairs(self.GlobalDefaults) do
         CreateBtn(data.id, data.macro, data.icon)
     end
@@ -430,7 +467,8 @@ function Hotkeys:CreateStaticBar()
 
     -- 3. Group Units
     for i = 1, 4 do CreateBtn("party"..i, "/focus party"..i) end
-    for i = 1, 5 do CreateBtn("arena"..i, "/focus arena"..i) end
+    for i = 5, 5 do CreateBtn("arena"..i, "/focus arena"..i) end -- Adjusted loop start to 5 for remaining Arena unit
+    for i = 1, 4 do CreateBtn("arena"..i, "/focus arena"..i) end -- Correct loop for Arena 1-4
     for i = 1, 40 do CreateBtn("raid"..i, "/focus raid"..i) end
 
     self.StaticBarFrame = parent
@@ -461,7 +499,10 @@ function Hotkeys:CreateDynamicBar()
     
     for _, spellData in ipairs(spellList) do
         local key = self.Pool_Rotation[keyIndex]
-        if not key then break end 
+        if not key then 
+            print("|cFFFF0000[Hotkeys]|r ERROR: Rotation Pool Exhausted!")
+            break 
+        end 
         
         local btnName = "CA_Dynamic_" .. keyIndex
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
@@ -491,6 +532,10 @@ function Hotkeys:CreateDynamicBar()
 
         btn:SetAttribute("type", "macro")
         btn:SetAttribute("macrotext", "/cast [@focus, exists] " .. spellData.id)
+		
+		btn.debugName = spellData.id 
+		btn.debugKey  = key 
+		btn:SetScript("PostClick", Debug_PostClick)
         
         table.insert(self.DynamicButtons, { frame = btn, key = key, spell = spellData.id })
         keyIndex = keyIndex + 1
@@ -519,54 +564,24 @@ function Hotkeys:ApplyBindings()
     print("|cFF00FF00[Hotkeys]|r All Bindings Applied.")
 end
 
--- ----------------------------------------------------------------------------
--- 5. DEBUG MODE
--- ----------------------------------------------------------------------------
 function Hotkeys:ToggleDebug()
-    if InCombatLockdown() then 
-        print("|cFFFF0000[Hotkeys]|r Cannot toggle debug in combat.")
-        return 
-    end
+    self.DebugMode = not self.DebugMode
+    local status = self.DebugMode and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
+    print("|cFF00FFFF[Hotkeys]|r Debug Mode: " .. status)
 
-    local f1 = self.StaticBarFrame
-    local f2 = self.DynamicBarFrame
-    
-    if f1:GetAlpha() == 0 then
-        f1:SetAlpha(1)
-        if f2 then f2:SetAlpha(1) end
-        print("|cFF00FFFF[Hotkeys]|r Debug Mode: |cFF00FF00ON|r")
-    else
-        f1:SetAlpha(0)
-        if f2 then f2:SetAlpha(0) end
-        print("|cFF00FFFF[Hotkeys]|r Debug Mode: |cFFFF0000OFF|r")
-    end
+    if InCombatLockdown() then return end
+    local alpha = self.DebugMode and 1 or 0
+    if self.StaticBarFrame then self.StaticBarFrame:SetAlpha(alpha) end
+    if self.DynamicBarFrame then self.DynamicBarFrame:SetAlpha(alpha) end
 end
 
--- ----------------------------------------------------------------------------
--- 5. EXPORT / DUMP
--- ----------------------------------------------------------------------------
-
--- [CHANGED]: Uses jungle.Color class to ensure 100% match with Pixel engine
 function Hotkeys:GenerateColor(str)
-    -- Safety check if Color.lua loaded
-    if not jungle.Color then 
-        print("|cFFFF0000[Error]|r jungle.Color class missing!") 
-        return "000000" 
-    end
-    
-    -- 1. Create Instance
+    if not jungle.Color then return "000000" end
     local colorObj = jungle.Color:new()
-    
-    -- 2. Generate RGB (Returns table {0-1, 0-1, 0-1})
     local rgb = colorObj:makeColor(str)
-    
-    -- 3. Convert to 0-255 Integer
-    -- Note: Color.lua uses round(val, 4). We simply scale that to 255.
     local r = math.floor(rgb[1] * 255 + 0.5)
     local g = math.floor(rgb[2] * 255 + 0.5)
     local b = math.floor(rgb[3] * 255 + 0.5)
-    
-    -- 4. Return Hex String
     return string.format("%02x%02x%02x", r, g, b)
 end
 
@@ -574,16 +589,13 @@ function Hotkeys:DumpBindings()
     OliaEyes_Export = {}
     local count = 0
     local colorMap = {}
-    local collisionCount = 0
     
     print("|cFF00FFFF[Hotkeys]|r Dump Started (Using jungle.Color)...")
 
     local function AddEntry(className, typeName, id, key)
         local color = self:GenerateColor(id)
-        
         if colorMap[color] and colorMap[color] ~= id then
             print("|cFFFF0000[COLLISION]|r " .. color .. " : " .. colorMap[color] .. " vs " .. id)
-            collisionCount = collisionCount + 1
         else
             colorMap[color] = id
         end
@@ -598,14 +610,12 @@ function Hotkeys:DumpBindings()
         count = count + 1
     end
 
-    -- Static
     if self.StaticButtons then
         for _, btn in ipairs(self.StaticButtons) do
             AddEntry("GLOBAL", "Static", btn.id, btn.key)
         end
     end
 
-    -- Dynamic
     for className, spellList in pairs(self.ClassSpells) do
         local keyIndex = 1
         for _, spellData in ipairs(spellList) do
@@ -616,19 +626,17 @@ function Hotkeys:DumpBindings()
         end
     end
 
-    print("|cFF00FF00[Hotkeys]|r Dump Complete. " .. count .. " items. Collisions: " .. collisionCount)
+    print("|cFF00FF00[Hotkeys]|r Dump Complete. " .. count .. " items.")
 end
 
--- ----------------------------------------------------------------------------
--- 6. AUTO-INITIALIZATION
--- ----------------------------------------------------------------------------
 Hotkeys:CreateStaticBar()
 Hotkeys:CreateDynamicBar()
 
 local f = CreateFrame("Frame")
---f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:SetScript("OnEvent", function() 
+    OliaDebugLog = {} 
+    Hotkeys:DumpBindings()
     Hotkeys:ApplyBindings()
-    -- Auto-Dump on login/reload to keep Python sync
+    print("|cFF00FF00[Olia]|r System Ready: Logs Cleared & Bindings Exported.")
 end)

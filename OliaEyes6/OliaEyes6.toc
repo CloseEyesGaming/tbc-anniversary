@@ -3,7 +3,8 @@
 ## Notes: Automation Core
 ## Author: Olia
 ## Version: 5.0
-## SavedVariables: OliaEyes_Export
+## SavedVariables: OliaEyes_Export, OliaDebugLog
+
 
 Offsets.lua
 Color.lua

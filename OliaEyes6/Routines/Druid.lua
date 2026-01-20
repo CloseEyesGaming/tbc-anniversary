@@ -601,6 +601,7 @@ local function druidDpsBasic(_target)
             (
                 GetShapeshiftForm()==2
                 and jungle.ReadyCastSpell('Rip', _target)
+				and not jungle.Debuff('Rip', _target, '|PLAYER')
                 and (
                     (GetUnitSpeed('player') == 0 and GetComboPoints('player', 'target') >= 5)
                     or
