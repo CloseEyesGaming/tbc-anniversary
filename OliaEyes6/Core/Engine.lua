@@ -48,14 +48,14 @@ function Engine:ProcessRotation()
                 return -- Placeholder for Thread 1 logic
             elseif self.activeThread == 2 then
                 -- The Main Healing Loop
-                if rot:rotate({jungle.druidBurstHeal,}, 1) then return end
-                if rot:arenaRotate({jungle.druidAntiCcSelf,}, 1) then return end
-                if rot:rotate({jungle.druidSelfDef,}, 1) then return end
-                if rot:rotate({jungle.druidDispell,}, 1) then return end                
+                -- if rot:rotate({jungle.druidBurstHeal,}, 1) then return end
+                -- if rot:arenaRotate({jungle.druidAntiCcSelf,}, 1) then return end
+                -- if rot:rotate({jungle.druidSelfDef,}, 1) then return end
+                -- if rot:rotate({jungle.druidDispell,}, 1) then return end                
                 if rot:rotate({jungle.druidHealBasic,}, 1) then return end
-                if rot:arenaRotate({jungle.druidCCHealer}, 1) then return end
-                if rot:rotate({jungle.druidDefaultAssist,}, 1) then return end
-                if rot:rotate({jungle.druidPreHot,}, 1) then return end
+                -- if rot:arenaRotate({jungle.druidCCHealer}, 1) then return end
+                -- if rot:rotate({jungle.druidDefaultAssist,}, 1) then return end
+                -- if rot:rotate({jungle.druidPreHot,}, 1) then return end
             elseif self.activeThread == 3 then
                 return -- Placeholder
             elseif self.activeThread == 4 then

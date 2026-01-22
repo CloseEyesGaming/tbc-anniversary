@@ -1,136 +1,127 @@
 import time
-import keyboard
 import sys
 import os
-from main import parse_lua_dataset
+import re
+import argparse
 
-"""
-OliaEyes Keybind Verification Tool
-----------------------------------
-Purpose:
-    Parses the addon's Lua configuration ('OliaEyes6.lua') and physically simulates 
-    keypresses for every bound action. This allows you to verify that your 
-    in-game action bars are lighting up correctly.
-
-Usage:
-    python test_keybinds.py [CLASS_FILTER]
-
-Arguments:
-    CLASS_FILTER (Optional):
-        If provided, tests bindings for that specific class PLUS all GLOBAL bindings.
-        Examples: 'DRUID', 'PALADIN', 'ROGUE'.
-        If omitted, tests ALL bindings found in the file.
-
-Safety & Instructions:
-    1. Run this script.
-    2. You have a 5-SECOND DELAY to Alt-Tab into World of Warcraft.
-    3. The script will press keys every 0.5 seconds.
-    4. Watch your action bars to confirm the correct spells are highlighting.
-    5. To Abort: Press 'Ctrl+C' in this terminal.
-
-Requirements:
-    - 'OliaEyes6.lua' must be in the same directory.
-    - 'main.py' (for the parser) must be in the same directory.
-    - Run as Administrator if inputs are not registering in WoW.
-"""
+# --- IMPORTS FROM MAIN ---
+# We reuse the core logic to ensure the test exactly matches the bot's behavior.
+try:
+    from main import execute_action, normalize_key, HAS_GAMEPAD_LIB
+except ImportError:
+    print("CRITICAL: 'main.py' not found. This tool requires the refactored main.py.")
+    sys.exit(1)
 
 
-def test_rotation():
+def parse_lua_with_classes(file_path):
+    """
+    A specialized parser for the Test Tool.
+    """
+    if not os.path.exists(file_path):
+        print(f"Error: Could not find '{file_path}'.")
+        return []
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    actions_list = []
+
+    # robust block parser
+    blocks = re.findall(r'\{([\s\S]*?)\}', content)
+
+    for block in blocks:
+        # Extract fields
+        key_match = re.search(r'\["key"\]\s*=\s*"(.*?)"', block)
+        id_match = re.search(r'\["id"\]\s*=\s*"(.*?)"', block)
+        class_match = re.search(r'\["class"\]\s*=\s*"(.*?)"', block)
+
+        if key_match and id_match and class_match:
+            raw_key = key_match.group(1)
+            action_id = id_match.group(1)
+            class_name = class_match.group(1).upper()
+
+            # Use main.py's normalizer to get the structure (Type, Modifiers, KeyCode)
+            action_data = normalize_key(raw_key)
+
+            # Enrich with metadata
+            action_data['name'] = action_id
+            action_data['class'] = class_name
+            action_data['raw_key'] = raw_key
+
+            actions_list.append(action_data)
+
+    return actions_list
+
+
+def run_test(target_class=None):
     LUA_FILE = 'OliaEyes6.lua'
 
-    # These are the keys defined in main.py to trigger the bot
-    # We explicitly ensure they are tested.
-    BOT_TRIGGER_KEYS = ['num 1', 'num 2', 'num 3', 'num 4', 'num 5', 'num 6']
+    print(f"--- Loading {LUA_FILE} ---")
+    all_actions = parse_lua_with_classes(LUA_FILE)
 
-    # 1. Parse Arguments for Class Filtering
-    target_class = None
-    if len(sys.argv) > 1:
-        target_class = sys.argv[1].upper()
-        print(f"--- TEST MODE: Filtering for Class [{target_class}] + GLOBAL ---")
+    if not all_actions:
+        print("No actions found. Check file.")
+        return
+
+    test_queue = []
+
+    if target_class:
+        target_class = target_class.upper()
+        print(f"--- Filtering for CLASS: {target_class} (+GLOBAL) ---")
+        for act in all_actions:
+            c = act['class']
+            if c == target_class or c == "GLOBAL" or c == "SYSTEM":
+                test_queue.append(act)
     else:
-        print(f"--- TEST MODE: Testing ALL Classes (No filter provided) ---")
-        print("Tip: You can run 'python test_keybinds.py PALADIN' to test specific classes.")
+        print("--- Testing ALL Classes ---")
+        test_queue = all_actions
 
-    # 2. Check File Existence
-    if not os.path.exists(LUA_FILE):
-        print(f"ERROR: '{LUA_FILE}' not found. Please place it in this folder.")
+    # Sort for readability: Global first, then Alphabetical by Name
+    test_queue.sort(key=lambda x: (0 if x['class'] == 'GLOBAL' else 1, x['class'], x['name']))
+
+    print(f"\nLoaded {len(test_queue)} actions to test.")
+
+    # --- DIAGNOSTIC INFO ---
+    if HAS_GAMEPAD_LIB:
+        print("\n[SUCCESS] Gamepad Driver: ACTIVE")
+        print("          Virtual Controller keys will be simulated.")
+    else:
+        print("\n[WARNING] Gamepad Driver: MISSING/INACTIVE")
+        print("          'PAD' keys will likely FAIL or be ignored.")
+
+    print("\n[!!!] Switch to WoW window NOW. Starting in 5 seconds... [!!!]")
+    try:
+        for i in range(5, 0, -1):
+            print(f"{i}...", end=" ", flush=True)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nAborted.")
         return
 
-    # 3. Load Data
-    action_map = parse_lua_dataset(LUA_FILE)
-    if not action_map:
-        print("No bindings found or file is empty.")
-        return
+    print("\n\n--- STARTING SEQUENCE ---")
 
-    # 4. Filter Data
-    unique_actions = []
-    seen_keys = set()
+    for i, action in enumerate(test_queue, 1):
+        # Pretty print
+        display_key = action.get('raw_key')
+        type_str = "KBD" if action['type'] == 'keyboard' else "PAD"
 
-    # Add Lua Actions
-    for data in action_map.values():
-        k = data["key"]
-        n = data["name"]
-        c = data["class"]
+        print(f"[{i}/{len(test_queue)}] [{type_str}] {action['class']} : {action['name']} -> [{display_key}]")
 
-        # Filtering Logic:
-        # Keep if no filter is set OR if class matches OR if it is GLOBAL
-        if target_class and c != target_class and c != "GLOBAL":
-            continue
+        # Execute using the shared logic from main.py
+        execute_action(action)
 
-        if k not in seen_keys:
-            unique_actions.append((k, n, c))
-            seen_keys.add(k)
-
-    # 5. Explicitly Add Trigger Keys (if not already present)
-    # This ensures num 1-6 are tested even if Lua export is missing them
-    for t_key in BOT_TRIGGER_KEYS:
-        if t_key not in seen_keys:
-            # Only add if we are not filtering, or if we are filtering for GLOBAL (conceptually)
-            # Since threads are global, we usually want to test them.
-            print(f"Note: Adding Trigger Key '{t_key}' manually to test list.")
-            unique_actions.append((t_key, "Bot Trigger / Thread", "SYSTEM"))
-            seen_keys.add(t_key)
-
-    # 6. Sort Data
-    # Priority: SYSTEM/GLOBAL (0) -> Others (1), then by Class Name, then by Action Name
-    unique_actions.sort(key=lambda x: (0 if x[2] in ["GLOBAL", "SYSTEM"] else 1, x[2], x[1]))
-
-    if not unique_actions:
-        print(f"No actions found for class '{target_class}'. Check spelling.")
-        # Print available classes to help the user
-        available = set(d['class'] for d in action_map.values())
-        print(f"Available classes: {', '.join(sorted(available))}")
-        return
-
-    print(f"\nReady to test {len(unique_actions)} keybinds for {target_class or 'ALL'} (+GLOBAL/TRIGGERS).")
-    print("Switch to World of Warcraft NOW.")
-    print("Starting in 5 seconds...")
-    time.sleep(5)
-
-    for idx, (key_str, action_name, class_name) in enumerate(unique_actions, 1):
-        print(f"\n[{idx}/{len(unique_actions)}] Class: {class_name} | Spell: '{action_name}'")
-        print(f"    -> Key: {key_str}")
-
-        try:
-            # Press
-            keys = key_str.split('+')
-            for k in keys:
-                keyboard.press(k)
-
-            time.sleep(0.05)  # Hold duration
-
-            for k in reversed(keys):
-                keyboard.release(k)
-
-            print("    -> SENT.")
-
-        except Exception as e:
-            print(f"    -> FAILED: {e}")
-
-        time.sleep(0.5)
+        # Delay to allow visual verification in game
+        time.sleep(0.4)
 
     print("\n--- TEST COMPLETE ---")
 
 
 if __name__ == "__main__":
-    test_rotation()
+    parser = argparse.ArgumentParser(description="OliaEyes Keybind Verification Tool")
+    parser.add_argument("classname", nargs="?", help="Specific Class to test (e.g. DRUID). Leave empty to test all.")
+    args = parser.parse_args()
+
+    try:
+        run_test(args.classname)
+    except KeyboardInterrupt:
+        print("\nTest Interrupted by User.")

@@ -127,89 +127,6 @@ end
 jungle.druidSelfDef = druidSelfDef
 
 
-local function druidHealBasic(_friend)
-    local set = {
-		[1]= {'',
-			'Regrowth',
-			(
-				jungle.ReadyCastSpell('Regrowth', _friend)
-				and not UnitCastingInfo('player')
-				and (GetUnitSpeed('player')==0 or C_Spell.GetSpellInfo(8936).castTime==0)
-				and jungle.LifePercent(_friend)<=0.4
-			),
-			1, 
-			0 
-		},		
-		[2]= {'',
-			'Grove Guardians',
-			(
-				jungle.ReadyCastSpell('Grove Guardians', _friend)
-				and not UnitCastingInfo('player')
-				and GetUnitSpeed('player')~=0
-				and UnitAffectingCombat(_friend)
-				and jungle.LifePercent(_friend)<=0.6
-			),
-			1, 
-			0 
-		},		
-		[3]= {'',
-			'Cenarion Ward',
-			(
-				jungle.ReadyCastSpell('Cenarion Ward', _friend)
-				and jungle.LifePercent(_friend)<0.8
-			),
-			1, 
-			0 
-		},		
-		[4]= {'',
-			'Rejuvenation',
-			(
-				jungle.ReadyCastSpell('Rejuvenation', _friend)
-				and not jungle.unitCacheBuff(_friend, 'Rejuvenation', '_PLAYER')
-				and jungle.targetedByCount(_friend)>=1		
-			),
-			1, 
-			0 
-		},		
-		[5]= {'',
-			'Lifebloom',
-			(
-				(IsPlayerSpell(392301) and jungle.bloomFriendsCount(0.9)<2)
-				and not jungle.unitCacheBuff(_friend, 'Lifebloom', '_PLAYER', 3)
-				and jungle.ReadyCastSpell('Lifebloom', _friend)
-				and jungle.LifePercent(_friend)<0.9
-			),
-			1, 
-			0 
-		},		
-		[6]= {'Germination',
-			'Rejuvenation',
-			(
-				IsPlayerSpell(155675) 
-				and jungle.ReadyCastSpell('Rejuvenation', _friend)
-				and not jungle.unitCacheBuff(_friend, 'Rejuvenation (Germination)', '_PLAYER')
-				and jungle.LifePercent(_friend)<0.9
-			),
-			1, 
-			0 
-		},				
-		[7]= {'',
-			'Regrowth',
-			(
-				jungle.ReadyCastSpell('Regrowth', _friend)
-				and not UnitCastingInfo('player')
-				and (GetUnitSpeed('player')==0 or C_Spell.GetSpellInfo(8936).castTime==0)
-				and jungle.Buff('Clearcasting', 'player')
-			),
-			1, 
-			0 
-		},		
-	}
-	return set
-end
-jungle.druidHealBasic = druidHealBasic
-
-
 local function druidPreHot(_friend)
     local set = {
 		[1]= {'',
@@ -633,3 +550,45 @@ local function druidDpsBasic(_target)
     return set
 end
 jungle.druidDpsBasic = druidDpsBasic
+
+
+local function druidHealBasic(_friend)
+    local set = {			
+		[1]= {'',
+			'Rejuvenation',
+			(
+				jungle.ReadyCastSpell('Rejuvenation', _friend)
+				and not jungle.unitCacheBuff(_friend, 'Rejuvenation', '_PLAYER')
+				and GetUnitSpeed('player')~=0
+				and jungle.LifePercent(_friend)<0.9				
+			),
+			1, 
+			0 
+		},		
+		[2]= {'',
+			'Lifebloom',
+			(
+				jungle.bloomFriendsCount(0.9)<2
+				and not jungle.unitCacheBuff(_friend, 'Lifebloom', '_PLAYER', 3)
+				and jungle.ReadyCastSpell('Lifebloom', _friend)
+				and jungle.LifePercent(_friend)<0.9
+			),
+			1, 
+			0 
+		},		
+		[3]= {'',
+			'Regrowth',
+			(
+				jungle.ReadyCastSpell('Regrowth', _friend)
+				and not UnitCastingInfo('player')
+				and GetUnitSpeed('player')==0
+				and not jungle.unitCacheBuff(_friend, 'Regrowth', '_PLAYER')
+				and jungle.LifePercent(_friend)<0.6
+			),
+			1, 
+			0 
+		},		
+	}
+	return set
+end
+jungle.druidHealBasic = druidHealBasic

@@ -300,51 +300,54 @@ Hotkeys.ClassSpells = {
 -- 3. KEY POOLS
 -- ----------------------------------------------------------------------------
 
+-- 1. POOL ROTATION (CTRL + Keyboard Only - 44 Slots)
+-- Removed CTRL+Gamepad as requested.
 Hotkeys.Pool_Rotation = {
-    -- CTRL Set (Spell Engine)
-    "CTRL-F1", "CTRL-F2", "CTRL-F3", "CTRL-F5", "CTRL-F6", 
-    "CTRL-F7", "CTRL-F8", "CTRL-F9", "CTRL-F10", "CTRL-F11", "CTRL-F12",
-    "CTRL-INSERT", "CTRL-DELETE", "CTRL-HOME", "CTRL-END", "CTRL-PAGEUP", "CTRL-PAGEDOWN",
-    "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT", "CTRL-SPACE",
-    -- [NEW]: Allowed Letters
-    "CTRL-I", "CTRL-J", "CTRL-K", "CTRL-L", "CTRL-N", "CTRL-O", "CTRL-P", "CTRL-U", "CTRL-Y",
+    -- Numbers (5)
+    "CTRL-0", "CTRL-6", "CTRL-7", "CTRL-8", "CTRL-9",
 
-    -- SHIFT Set (Spell Engine)
-    "SHIFT-F1", "SHIFT-F2", "SHIFT-F3", "SHIFT-F5", "SHIFT-F6", 
-    "SHIFT-F7", "SHIFT-F8", "SHIFT-F9", "SHIFT-F10", "SHIFT-F11", "SHIFT-F12",
-    "SHIFT-INSERT", "SHIFT-DELETE", "SHIFT-HOME", "SHIFT-END", "SHIFT-PAGEUP", "SHIFT-PAGEDOWN",
-    "SHIFT-UP", "SHIFT-DOWN", "SHIFT-LEFT", "SHIFT-RIGHT", "SHIFT-SPACE",
-    -- [NEW]: Allowed Letters
-    "SHIFT-I", "SHIFT-J", "SHIFT-K", "SHIFT-L", "SHIFT-N", "SHIFT-O", "SHIFT-P", "SHIFT-U", "SHIFT-Y",
+    -- Letters (7)
+    "CTRL-I", "CTRL-J", "CTRL-K", "CTRL-L", "CTRL-O", "CTRL-U", "CTRL-Y",
 
-    -- [NEW]: Unmodified Specials
-    "[", "]", "\\", "'",
+    -- Function Keys (11)
+    "CTRL-F1", "CTRL-F2", "CTRL-F3", "CTRL-F5", "CTRL-F6", "CTRL-F7", 
+    "CTRL-F8", "CTRL-F9", "CTRL-F10", "CTRL-F11", "CTRL-F12",
+
+    -- Navigation (10)
+    "CTRL-INSERT", "CTRL-DELETE", "CTRL-HOME", "CTRL-END", "CTRL-PAGEUP", "CTRL-PAGEDOWN", 
+    "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT",
+
+    -- Symbols & Backspace (11)
+    "CTRL--", "CTRL-=", "CTRL-[", "CTRL-]", "CTRL-\\", "CTRL-;", "CTRL-'", 
+    "CTRL-,", "CTRL-.", "CTRL-/", "CTRL-BACKSPACE",
 }
 
+-- 2. POOL TARGETING (Unmodified Base Keys - 71 Slots)
 Hotkeys.Pool_Targeting = {
-    -- 1. THREAD CONTROLS
-    -- [REMOVED]: All NUMPAD keys removed. Bound manually in CreateStaticBar.
+    -- Numbers (5)
+    "0", "6", "7", "8", "9",
 
-    -- 2. ALT Set (Static Focus Engine)
-    "ALT-F1", "ALT-F2", "ALT-F3", "ALT-F5", "ALT-F6", 
-    "ALT-F7", "ALT-F8", "ALT-F9", "ALT-F10", "ALT-F11", "ALT-F12",
-    "ALT-INSERT", "ALT-DELETE", "ALT-HOME", "ALT-END", "ALT-PAGEUP", "ALT-PAGEDOWN",
-    "ALT-UP", "ALT-DOWN", "ALT-LEFT", "ALT-RIGHT", "ALT-SPACE",
-    -- [NEW]: Allowed Letters (CRITICAL for capacity)
-    "ALT-I", "ALT-J", "ALT-K", "ALT-L", "ALT-N", "ALT-O", "ALT-P", "ALT-U", "ALT-Y",
+    -- Letters (7)
+    "I", "J", "K", "L", "O", "U", "Y",
 
-    -- 3. DOUBLE MODIFIERS (F-Keys Only - Stable)
-    "CTRL-SHIFT-F1", "CTRL-SHIFT-F2", "CTRL-SHIFT-F3", 
-    "CTRL-SHIFT-F5", "CTRL-SHIFT-F6", "CTRL-SHIFT-F7", "CTRL-SHIFT-F8", 
-    "CTRL-SHIFT-F9", "CTRL-SHIFT-F10", "CTRL-SHIFT-F11", "CTRL-SHIFT-F12",
+    -- Function Keys (11)
+    "F1", "F2", "F3", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
 
-    "ALT-SHIFT-F1", "ALT-SHIFT-F2", "ALT-SHIFT-F3", 
-    "ALT-SHIFT-F5", "ALT-SHIFT-F6", "ALT-SHIFT-F7", "ALT-SHIFT-F8", 
-    "ALT-SHIFT-F9", "ALT-SHIFT-F10", "ALT-SHIFT-F11", "ALT-SHIFT-F12",
+    -- Navigation (10)
+    "INSERT", "DELETE", "HOME", "END", "PAGEUP", "PAGEDOWN", 
+    "UP", "DOWN", "LEFT", "RIGHT",
 
-    -- [REPLACED]: CTRL-ALT (Unreliable) -> CTRL-SHIFT-LETTERS (Stable)
-    "CTRL-SHIFT-I", "CTRL-SHIFT-J", "CTRL-SHIFT-K", "CTRL-SHIFT-L", 
-    "CTRL-SHIFT-N", "CTRL-SHIFT-O", "CTRL-SHIFT-P", "CTRL-SHIFT-U", "CTRL-SHIFT-Y",
+    -- Symbols & Backspace (11)
+    "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/", "BACKSPACE",
+
+    -- GamePad Buttons (27)
+    "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT",
+    "PAD1", "PAD2", "PAD3", "PAD4", "PAD5", "PAD6",
+    "PADLSTICK", "PADRSTICK",
+    "PADLSTICKUP", "PADLSTICKRIGHT", "PADLSTICKDOWN", "PADLSTICKLEFT",
+    "PADRSTICKUP", "PADRSTICKRIGHT", "PADRSTICKDOWN", "PADRSTICKLEFT",
+    "PADPADDLE1", "PADPADDLE2", "PADPADDLE3", "PADPADDLE4",
+    "PADFORWARD", "PADSYSTEM", "PADSOCIAL"
 }
 
 -- ----------------------------------------------------------------------------

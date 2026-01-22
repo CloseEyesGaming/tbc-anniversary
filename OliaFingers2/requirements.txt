@@ -1,0 +1,8 @@
+bettercam
+keyboard
+vgamepad
+numpy
+scipy
+soundfile
+pyaudiowpatch
+pydirectinput
