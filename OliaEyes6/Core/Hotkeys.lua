@@ -318,8 +318,13 @@ Hotkeys.Pool_Rotation = {
     "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT",
 
     -- Symbols & Backspace (11)
-    "CTRL--", "CTRL-=", "CTRL-[", "CTRL-]", "CTRL-\\", "CTRL-;", "CTRL-'", 
-    "CTRL-,", "CTRL-.", "CTRL-/", "CTRL-BACKSPACE",
+    "CTRL-[", "CTRL-]", "CTRL-\\", "CTRL-;", "CTRL-'", 
+    "CTRL-,", "CTRL-.", "CTRL-BACKSPACE",
+	
+	-- [NEW] Readable Aliases
+    "PADLSHOULDER", "PADRSHOULDER",
+    "PADLTRIGGER", "PADRTRIGGER",
+    "PADBACK"
 }
 
 -- 2. POOL TARGETING (Unmodified Base Keys - 71 Slots)
@@ -338,7 +343,7 @@ Hotkeys.Pool_Targeting = {
     "UP", "DOWN", "LEFT", "RIGHT",
 
     -- Symbols & Backspace (11)
-    "-", "=", "[", "]", "\\", ";", "'", ",", ".", "/", "BACKSPACE",
+    "[", "]", "\\", ";", "'", ",", ".", "BACKSPACE",
 
     -- GamePad Buttons (27)
     "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT",
@@ -399,7 +404,7 @@ function Hotkeys:CreateStaticBar()
         
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
         btn:SetSize(btnSize, btnSize)
-        btn:RegisterForClicks("AnyUp", "AnyDown")
+        btn:RegisterForClicks("AnyDown")
         
         -- Layout (Simple grid, threads separate)
         if forcedKey then
@@ -510,7 +515,7 @@ function Hotkeys:CreateDynamicBar()
         local btnName = "CA_Dynamic_" .. keyIndex
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
         btn:SetSize(btnSize, btnSize)
-        btn:RegisterForClicks("AnyUp", "AnyDown")
+        btn:RegisterForClicks("AnyDown")
 
         local index = keyIndex - 1
         local row = math.floor(index / columns)

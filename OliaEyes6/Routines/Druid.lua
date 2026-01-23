@@ -516,7 +516,7 @@ local function druidDpsBasic(_target)
         [4]= {'',
             'Rip',
             (
-                GetShapeshiftForm()==2
+                GetShapeshiftForm()==3
                 and jungle.ReadyCastSpell('Rip', _target)
 				and not jungle.Debuff('Rip', _target, '|PLAYER')
                 and (
@@ -531,7 +531,7 @@ local function druidDpsBasic(_target)
         [5]= {'',
             'Claw',
             (
-                GetShapeshiftForm()==2
+                GetShapeshiftForm()==3
                 and jungle.ReadyCastSpell('Claw', _target)
             ),
             1, 

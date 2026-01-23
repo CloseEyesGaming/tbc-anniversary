@@ -30,9 +30,12 @@ function Cast:Reset(pix)
     
     local defColor
     if UnitExists('focus') then
+        -- If focus exists, request the ClearFocus color (Green)
         defColor = colorHelper:makeColor('clearfocus')
     else
-        defColor = colorHelper:makeColor('dummyColor')
+        -- If no focus, FORCE BLACK [0, 0, 0]
+        -- This ensures the bot goes completely idle and presses nothing
+        defColor = {0, 0, 0}
     end
     
     pixelHelper.color = defColor

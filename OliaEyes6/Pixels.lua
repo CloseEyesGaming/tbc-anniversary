@@ -45,7 +45,15 @@ end
 function Pixel:clear()
     if self.pix == 1 then
         if HelloWorld1.texture then
-            HelloWorld1.texture:SetColorTexture(0.0863, 0.2549, 0.0392)
+            if UnitExists("focus") then
+                -- IDLE + FOCUS: Show Green (ClearFocus)
+                -- This signals the bot to press '7'
+                HelloWorld1.texture:SetColorTexture(0.0863, 0.2549, 0.0392)
+            else
+                -- IDLE + NO FOCUS: Show Black
+                -- This signals the bot to do NOTHING
+                HelloWorld1.texture:SetColorTexture(0, 0, 0)
+            end
             return true
         end
     end

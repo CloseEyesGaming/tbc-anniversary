@@ -30,15 +30,21 @@ if HAS_GAMEPAD_LIB:
         'PAD3': ('btn', BTN.XUSB_GAMEPAD_X, None),
         'PAD4': ('btn', BTN.XUSB_GAMEPAD_Y, None),
 
-        # --- BUMPERS (L1/R1) ---
+        # --- BUMPERS (SHOULDERS) ---
         'PAD5': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER, None),
         'PAD6': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER, None),
+        # [NEW] Aliases
+        'PADLSHOULDER': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER, None),
+        'PADRSHOULDER': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER, None),
 
-        # --- TRIGGERS (L2/R2) - Mapped to PADPADDLE 1/2 ---
-        'PADPADDLE1': ('trigger', 'left', 255),  # Full Press LT
-        'PADPADDLE2': ('trigger', 'right', 255),  # Full Press RT
+        # --- TRIGGERS ---
+        'PADPADDLE1': ('trigger', 'left', 255),
+        'PADPADDLE2': ('trigger', 'right', 255),
+        # [NEW] Aliases
+        'PADLTRIGGER': ('trigger', 'left', 255),
+        'PADRTRIGGER': ('trigger', 'right', 255),
 
-        # --- EXTRA PADDLES - Mapped to Stick Clicks or D-Pad ---
+        # --- EXTRA PADDLES (Stick Clicks) ---
         'PADPADDLE3': ('btn', BTN.XUSB_GAMEPAD_LEFT_THUMB, None),  # L3
         'PADPADDLE4': ('btn', BTN.XUSB_GAMEPAD_RIGHT_THUMB, None),  # R3
 
@@ -52,9 +58,7 @@ if HAS_GAMEPAD_LIB:
         'PADLSTICK': ('btn', BTN.XUSB_GAMEPAD_LEFT_THUMB, None),
         'PADRSTICK': ('btn', BTN.XUSB_GAMEPAD_RIGHT_THUMB, None),
 
-        # --- STICK MOVEMENT (AXIS EMULATION) ---
-        # Values are float -1.0 to 1.0.
-        # (Type, StickSide, (X, Y))
+        # --- STICK MOVEMENT (AXIS) ---
         'PADLSTICKUP': ('axis', 'left', (0.0, 1.0)),
         'PADLSTICKDOWN': ('axis', 'left', (0.0, -1.0)),
         'PADLSTICKLEFT': ('axis', 'left', (-1.0, 0.0)),
@@ -69,6 +73,8 @@ if HAS_GAMEPAD_LIB:
         'PADSYSTEM': ('btn', BTN.XUSB_GAMEPAD_START, None),
         'PADSOCIAL': ('btn', BTN.XUSB_GAMEPAD_BACK, None),
         'PADFORWARD': ('btn', BTN.XUSB_GAMEPAD_GUIDE, None),
+        # [NEW] Alias
+        'PADBACK': ('btn', BTN.XUSB_GAMEPAD_BACK, None),
     }
 
     virtual_pad = vg.VX360Gamepad()
