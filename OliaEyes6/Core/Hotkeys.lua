@@ -574,6 +574,11 @@ end
 
 function Hotkeys:ToggleDebug()
     self.DebugMode = not self.DebugMode
+	
+	if jungle.Debug then
+        jungle.Debug:Toggle(self.DebugMode)
+    end
+	
     local status = self.DebugMode and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
     print("|cFF00FFFF[Hotkeys]|r Debug Mode: " .. status)
 

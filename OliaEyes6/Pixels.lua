@@ -26,7 +26,7 @@ Pixel.__index = Pixel
 
 function Pixel:new(color, pix)
     local self = {};
-    setmetatable(self, Pixel) -- Helper looks up methods in 'Pixel' table
+    setmetatable(self, Pixel)
     self.color = color
     self.pix = pix
     return self;
@@ -34,7 +34,6 @@ end
 
 function Pixel:set()
     if self.pix == 1 then
-        -- Safety check if texture exists (e.g. before login)
         if HelloWorld1.texture then
             HelloWorld1.texture:SetColorTexture(self.color[1], self.color[2], self.color[3])
             return true
@@ -42,18 +41,32 @@ function Pixel:set()
     end
 end
 
+-- [CRITICAL FIX] Smart Clear Logic + Debug Reset
 function Pixel:clear()
     if self.pix == 1 then
         if HelloWorld1.texture then
+            local r, g, b = 0, 0, 0
+            local actionMsg = "Idle"
+            local targetMsg = "None"
+
+            -- 1. Check State (Focus Logic)
             if UnitExists("focus") then
-                -- IDLE + FOCUS: Show Green (ClearFocus)
-                -- This signals the bot to press '7'
-                HelloWorld1.texture:SetColorTexture(0.0863, 0.2549, 0.0392)
-            else
-                -- IDLE + NO FOCUS: Show Black
-                -- This signals the bot to do NOTHING
-                HelloWorld1.texture:SetColorTexture(0, 0, 0)
+                -- IDLE + FOCUS: Show Green (Key 7)
+                r, g, b = 0.0863, 0.2549, 0.0392
+                actionMsg = "Clear Focus"
+                targetMsg = UnitName("focus") or "Focus"
             end
+            
+            -- 2. Apply Visual Pixel (For Python)
+            HelloWorld1.texture:SetColorTexture(r, g, b)
+
+            -- 3. [DEBUG FIX] Reset the Panel
+            -- We force the panel to show "Idle" right now.
+            -- If a spell is cast later in this same frame, it will overwrite this with "Cast: X".
+            if jungle.Debug then
+                jungle.Debug:UpdateCast(actionMsg, targetMsg, {r, g, b})
+            end
+
             return true
         end
     end
