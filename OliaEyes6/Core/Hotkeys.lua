@@ -36,6 +36,7 @@ Hotkeys.GlobalDefaults = {
     { id = "targettarget",macro = "/focus targettarget", icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
+    { id = "Fishing",   macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -86,6 +87,8 @@ Hotkeys.ClassSpells = {
         { id = "Remove Curse", icon = "Interface\\Icons\\Spell_Holy_RemoveCurse" },
         { id = "Abolish Poison", icon = "Interface\\Icons\\Spell_Nature_NullifyPoison_02" },
         { id = "Rebirth", icon = "Interface\\Icons\\Spell_Nature_Reincarnation" },
+		{ id = "Faerie Fire (Feral)", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
+		{ id = "Faerie Fire", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
     },
     ["PRIEST"] = {
         { id = "Flash Heal", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
@@ -463,6 +466,8 @@ function Hotkeys:CreateStaticBar()
         local t_icon = (i % 2 == 1) and "Interface\\Icons\\Spell_ChargePositive" or "Interface\\Icons\\Spell_ChargeNegative"
         CreateBtn(t_id, t_macro, t_icon, t_key)
     end
+	-- Mostly for fihsing loop mode
+	CreateBtn("Thread 7", "/run run_thread7()", "Interface\\Icons\\Spell_ChargePositive", "F4")
 
     -- 1. Global Defaults (Attack, Stopcast, etc)
     for _, data in ipairs(self.GlobalDefaults) do
@@ -472,7 +477,7 @@ function Hotkeys:CreateStaticBar()
     -- 2. Missing Core Units
     CreateBtn("focus", "/focus focus", "Interface\\Icons\\Ability_Hunter_SniperShot")
     CreateBtn("pet", "/focus pet", "Interface\\Icons\\Ability_Hunter_BeastCall")
-
+	
     -- 3. Group Units
     for i = 1, 4 do CreateBtn("party"..i, "/focus party"..i) end
     for i = 5, 5 do CreateBtn("arena"..i, "/focus arena"..i) end -- Adjusted loop start to 5 for remaining Arena unit

@@ -5,16 +5,10 @@ local Jungle, jungle = ...
 -- =============================================================
 
 -- [tst0] Local Developer Scratchpad
+-- [tst0] Local Developer Scratchpad
+-- Purpose: Diagnostic check for non-targetable Soft Interact objects (Fishing Bobber)
 function tst0()
-    local hk = jungle.Hotkeys
-    print("|cFF00FF00[Test]|r Rotation Pool (Unmod): " .. #hk.Pool_Rotation)
-    print("|cFF00FF00[Test]|r Targeting Pool (CTRL): " .. #hk.Pool_Targeting)
-    
-    if #hk.Pool_Rotation == 71 and #hk.Pool_Targeting == 71 then
-        print("|cFF00FF00[Test]|r SUCCESS: Both pools have 71 keys.")
-    else
-        print("|cFFFF0000[Test]|r FAILURE: Counts mismatch.")
-    end
+	print(jungle.IsFishing())
 end
 
 -- [tst] Core Module Integrity Check

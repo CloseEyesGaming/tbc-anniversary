@@ -478,74 +478,64 @@ jungle.druidBuff = druidBuff
 
 
 local function druidDpsBasic(_target)
+    local form = GetShapeshiftForm()
+    -- Use direct Buff helper to avoid cache nil errors
+    local isStealthed = jungle.Buff('Prowl', 'player')
+    
     local set = {
-        -- Caster Form
-        [1]= {'',
-            'Moonfire',
-            (
-                GetShapeshiftForm()==0
-                and (UnitAffectingCombat('player') or GetUnitSpeed('player')~=0)
-                and jungle.ReadyCastSpell('Moonfire', _target)
-                and not jungle.Debuff('Moonfire', _target, '|PLAYER')
-            ),
-            1, 
-            0 
-        },        
-        [2]= {'',
-            'Wrath',
-            (
-                GetShapeshiftForm()==0
-                and jungle.ReadyCastSpell('Wrath', _target)
-                and GetUnitSpeed('player')==0
-            ),
-            1, 
-            0 
+        -- 1. STEALTH OPENER (Cat Form)
+        [1] = {'', 'Ravage', 
+            (form == 3 and isStealthed and jungle.ReadyCastSpell('Ravage', _target)), 
+            1, 0 
         },
-        -- Bear Form
-        [3]= {'',
-            'Maul',
-            (
-                GetShapeshiftForm()==1
-                and jungle.ReadyCastSpell('Maul')
-                and not IsCurrentSpell(select(7, GetSpellInfo("Maul")))
-            ),
-            1, 
-            0 
-        },        
-        -- Cat Form
-        [4]= {'',
-            'Rip',
-            (
-                GetShapeshiftForm()==3
-                and jungle.ReadyCastSpell('Rip', _target)
-				and not jungle.Debuff('Rip', _target, '|PLAYER')
-                and (
-                    (GetUnitSpeed('player') == 0 and GetComboPoints('player', 'target') >= 5)
-                    or
-                    (GetUnitSpeed('player') > 0 and GetComboPoints('player', 'target') >= 1)
-                )
-            ),
-            1, 
-            0 
+
+        -- 2. CAT FORM DPS (Non-Stealth)
+        [2] = {'', 'Faerie Fire (Feral)', 
+            (form == 3 and not isStealthed and jungle.ReadyCastSpell('Faerie Fire (Feral)', _target) 
+            and not jungle.Debuff('Faerie Fire (Feral)', _target, '|PLAYER')), 
+            1, 0 
         },
-        [5]= {'',
-            'Claw',
-            (
-                GetShapeshiftForm()==3
-                and jungle.ReadyCastSpell('Claw', _target)
-            ),
-            1, 
-            0 
+        [3] = {'', 'Tiger\'s Fury', 
+            (form == 3 and not isStealthed and jungle.ReadyCastSpell('Tiger\'s Fury') 
+            and UnitPower('player') < 40), 
+            1, 0 
         },
-        -- Auto Attack
-        [6]= {'',
-            'Attack',
-            (
-                not IsCurrentSpell(6603)
-            ),
-            1, 
-            0 
-        },            
+        [4] = {'', 'Rip', 
+            (form == 3 and not isStealthed and GetComboPoints('player', 'target') >= 4 
+            and not jungle.Debuff('Rip', _target, '|PLAYER')), 
+            1, 0 
+        },
+        [5] = {'', 'Mangle (Cat)', 
+            (form == 3 and not isStealthed and jungle.ReadyCastSpell('Mangle (Cat)', _target)), 
+            1, 0 
+        },
+
+        -- 3. BEAR FORM DPS
+        [6] = {'', 'Mangle (Bear)', 
+            (form == 1 and jungle.ReadyCastSpell('Mangle (Bear)', _target)), 
+            1, 0 
+        },
+        [7] = {'', 'Maul', 
+            (form == 1 and UnitPower('player', 1) >= 15 and not IsCurrentSpell(select(7, GetSpellInfo("Maul")))), 
+            1, 0 
+        },
+
+        -- 4. CASTER FORM DPS
+        [8] = {'', 'Moonfire', 
+            (form == 0 and not jungle.Debuff('Moonfire', _target, '|PLAYER') 
+            and jungle.ReadyCastSpell('Moonfire', _target)), 
+            1, 0 
+        },
+        [9] = {'', 'Wrath', 
+            (form == 0 and GetUnitSpeed('player') == 0 and jungle.ReadyCastSpell('Wrath', _target)), 
+            1, 0 
+        },
+
+        -- 5. AUTO ATTACK (Safety: No Attack if Stealthed)
+        [10] = {'', 'Attack', 
+            (not isStealthed and not IsCurrentSpell(6603) and UnitAffectingCombat('player')), 
+            1, 0 
+        },
     }
     return set
 end

@@ -306,3 +306,19 @@ local function getCasterUnitCCWindow(_target, _CCTables, _expired)
 	end
 end
 jungle.getCasterUnitCCWindow = getCasterUnitCCWindow
+
+
+-- IsFishing
+-- Returns true if the current softinteract target is the player's fishing bobber (ID: 35591).
+local function IsFishing()
+    -- Directly query the GUID for the softinteract token.
+    local guid = UnitGUID("softinteract")
+    if not guid then return false end
+
+    -- Format: Type-0-ServerID-InstanceID-ZoneUID-ID-SpawnUID
+    local unitType, _, _, _, _, objectID = strsplit("-", guid)
+    
+    -- Return true only if it is a GameObject matching the bobber ID
+    return (unitType == "GameObject" and objectID == "35591")
+end
+jungle.IsFishing = IsFishing

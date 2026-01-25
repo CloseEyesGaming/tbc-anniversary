@@ -11,6 +11,7 @@ function run_thread3() jungle.Engine:SetThread(3) end
 function run_thread4() jungle.Engine:SetThread(4) end
 function run_thread5() jungle.Engine:SetThread(5) end
 function run_thread6() jungle.Engine:SetThread(6) end
+function run_thread7() jungle.Engine:SetThread(7) end
 
 -- Initialize Global Tick
 jungle.currentTick = 0

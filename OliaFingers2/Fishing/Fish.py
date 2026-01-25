@@ -5,149 +5,91 @@ from scipy import signal
 import pydirectinput
 import threading
 import time
-import random
 
-# --- CONFIGURATION ---
-TRIGGER_KEY = '6'
-FISHING_KEY = '7'
-
-# Expanded range slightly to catch edge cases
+# --- CONFIGURATION (RESTORED FROM ORIGINAL) ---
+TRIGGER_KEY = '`'
+FISHING_KEY = 'u'
 MIN_SCORE = 0.0035
 MAX_SCORE = 0.0065
-
-TEMPLATE_FILE = "MasterTemplate.wav"
-
-
-# ---------------------
-
-def load_template(filename):
-    data, fs = sf.read(filename)
-    if len(data.shape) > 1: data = np.mean(data, axis=1)
-    return data, fs
+TEMPLATE_FILE = "Fishing/MasterTemplate.wav"
 
 
 def normalize(data):
     peak = np.max(np.abs(data))
-    if peak == 0: return data
-    return data / peak
+    return data / peak if peak != 0 else data
 
 
 def trigger_action(score):
-    print(f"\n>>> !!! INSTANT TRIGGER (Score: {score:.5f}) !!! <<<")
-
-    # Super fast reaction
+    """Original fast reaction timing"""
+    print(f"\n>>> !!! BITE DETECTED (Score: {score:.5f}) !!! <<<")
     pydirectinput.keyDown(TRIGGER_KEY)
     time.sleep(0.05)
     pydirectinput.keyUp(TRIGGER_KEY)
-
     print(">>> CLICKED <<<")
-    # Cooldown
     time.sleep(1.0)
-    print("Fish cast")
     pydirectinput.keyDown(FISHING_KEY)
     time.sleep(0.05)
     pydirectinput.keyUp(FISHING_KEY)
-    print("--- Scanning ---")
+    print("--- Scanning for bites ---")
 
 
-def start_fast_debug_bot():
-    print("--- HIGH SPEED DEBUG BOT ---")
-    print(f"Target Range: {MIN_SCORE} < Score < {MAX_SCORE}")
+class FishingEngine:
+    def __init__(self):
+        try:
+            data, file_fs = sf.read(TEMPLATE_FILE)
+            if len(data.shape) > 1: data = np.mean(data, axis=1)
+            self.template_raw = data
+            self.p = pyaudio.PyAudio()
+            wasapi = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
 
-    # 1. Load Template
-    try:
-        template_raw, file_fs = load_template(TEMPLATE_FILE)
-    except FileNotFoundError:
-        print("ERROR: MasterTemplate.wav missing.")
-        return
+            # Original Device Search logic
+            self.dev = None
+            for i in range(self.p.get_device_count()):
+                d = self.p.get_device_info_by_index(i)
+                if d["hostApi"] == wasapi["index"] and "MAJOR III" in d["name"].upper() and d.get("isLoopbackDevice"):
+                    self.dev = d
+                    break
+            if not self.dev:
+                def_out = self.p.get_device_info_by_index(wasapi["defaultOutputDevice"])
+                for i in range(self.p.get_device_count()):
+                    d = self.p.get_device_info_by_index(i)
+                    if d["name"] == def_out["name"] and d.get("isLoopbackDevice"):
+                        self.dev = d
+                        break
 
-    p = pyaudio.PyAudio()
+            print(f"[Fishing] Engine Active on: {self.dev['name']}")
+            self.fs = int(self.dev["defaultSampleRate"])
+            if self.fs != file_fs:
+                num = round(len(self.template_raw) * float(self.fs) / file_fs)
+                self.template_raw = signal.resample(self.template_raw, num)
 
-    # 2. Find Device
-    wasapi = p.get_host_api_info_by_type(pyaudio.paWASAPI)
-    dev = None
-    for i in range(p.get_device_count()):
-        d = p.get_device_info_by_index(i)
-        if d["hostApi"] == wasapi["index"] and "MAJOR III" in d["name"].upper() and d.get("isLoopbackDevice"):
-            dev = d;
-            break
-    if not dev:
-        def_out = p.get_device_info_by_index(wasapi["defaultOutputDevice"])
-        for i in range(p.get_device_count()):
-            d = p.get_device_info_by_index(i)
-            if d["name"] == def_out["name"] and d.get("isLoopbackDevice"):
-                dev = d;
-                break
+            self.STEP_SIZE = int(self.fs * 0.1)
+            self.window = np.zeros(int(len(self.template_raw) * 1.2), dtype=np.float32)
+            self.stream = self.p.open(format=pyaudio.paFloat32, channels=int(self.dev["maxInputChannels"]),
+                                      rate=self.fs, input=True, input_device_index=self.dev["index"],
+                                      frames_per_buffer=self.STEP_SIZE)
+            self.last_trigger = 0
+        except Exception as e:
+            print(f"[Fishing] Init Error: {e}")
 
-    print(f"Listening on: {dev['name']}")
-    fs = int(dev["defaultSampleRate"])
+    def poll(self):
+        if self.stream.get_read_available() < self.STEP_SIZE: return
+        data = self.stream.read(self.STEP_SIZE, exception_on_overflow=False)
+        new_audio = np.frombuffer(data, dtype=np.float32)
+        if self.dev["maxInputChannels"] > 1:
+            new_audio = np.mean(new_audio.reshape(-1, self.dev["maxInputChannels"]), axis=1)
+        self.window = np.roll(self.window, -len(new_audio))
+        self.window[-len(new_audio):] = new_audio
+        if np.max(np.abs(self.window)) < 0.001: return
 
-    # Resample template
-    if fs != file_fs:
-        num = round(len(template_raw) * float(fs) / file_fs)
-        template_raw = signal.resample(template_raw, num)
+        window_norm = normalize(self.window)
+        temp_norm = normalize(self.template_raw)
+        corr = signal.correlate(window_norm, temp_norm, mode='valid', method='fft')
+        score = np.max(np.abs(corr)) / len(temp_norm)
 
-    template_len = len(template_raw)
-    if template_len == 0: template_len = int(fs * 0.5)
-
-    # --- SLIDING WINDOW SETUP ---
-    # Window = 1.2x template length (tight fit for speed)
-    WINDOW_SIZE = int(template_len * 1.2)
-    # Step = Update 10 times per second
-    STEP_SIZE = int(fs * 0.1)
-
-    window = np.zeros(WINDOW_SIZE, dtype=np.float32)
-    stream = p.open(format=pyaudio.paFloat32, channels=int(dev["maxInputChannels"]),
-                    rate=fs, input=True, input_device_index=dev["index"],
-                    frames_per_buffer=STEP_SIZE)
-
-    last_trigger = 0
-    print(f"\n[LIVE SCORE FEED] (Updates every 0.1s)")
-
-    try:
-        while True:
-            # 1. Read small chunk
-            data = stream.read(STEP_SIZE, exception_on_overflow=False)
-            new_audio = np.frombuffer(data, dtype=np.float32)
-
-            # Mono
-            if dev["maxInputChannels"] > 1:
-                new_audio = new_audio.reshape(-1, dev["maxInputChannels"])
-                new_audio = np.mean(new_audio, axis=1)
-
-            # 2. Update Window
-            window = np.roll(window, -len(new_audio))
-            window[-len(new_audio):] = new_audio
-
-            # Skip calculation if silence (saves CPU)
-            if np.max(np.abs(window)) < 0.001:
-                continue
-
-            # 3. Calculate Score
-            score = 0.0
-            window_norm = normalize(window)
-            temp_norm = normalize(template_raw)
-
-            corr = signal.correlate(window_norm, temp_norm, mode='valid', method='fft')
-            score = np.max(np.abs(corr)) / len(temp_norm)
-
-            # 4. DEBUG PRINT (Show everything above 0.001)
-            if score > 0.001:
-                status = " "
-                if MIN_SCORE <= score <= MAX_SCORE: status = "<<< TARGET >>>"
-                print(f"Score: {score:.5f} {status}")
-
-            # 5. TRIGGER
-            if MIN_SCORE <= score <= MAX_SCORE:
-                if time.time() - last_trigger > 4.0:
-                    threading.Thread(target=trigger_action, args=(score,)).start()
-                    last_trigger = time.time()
-                    # Clear window
-                    window.fill(0)
-
-    except KeyboardInterrupt:
-        p.terminate()
-
-
-if __name__ == "__main__":
-    start_fast_debug_bot()
+        if score > 0.001: print(f"Score: {score:.5f}")
+        if MIN_SCORE <= score <= MAX_SCORE:
+            if time.time() - self.last_trigger > 4.0:
+                threading.Thread(target=trigger_action, args=(score,)).start()
+                self.last_trigger = time.time()
+                self.window.fill(0)

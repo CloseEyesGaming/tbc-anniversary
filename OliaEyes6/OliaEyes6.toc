@@ -43,6 +43,7 @@ Routines/Rogue.lua
 Routines/Shaman.lua
 Routines/Warlock.lua
 Routines/Warrior.lua
+Routines/Fishing.lua
 
 # --- BOOTSTRAP ---
 Main.lua

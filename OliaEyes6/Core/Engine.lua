@@ -63,7 +63,9 @@ function Engine:ProcessRotation()
 			elseif self.activeThread == 5 then
                 if rot:dpsRotate({jungle.druidDpsBasic,}, 1) then return end  
 			elseif self.activeThread == 6 then
-                if rot:rotate({jungle.druidBuff,}, 1) then return end
+                if rot:rotate({jungle.druidBuff,}, 1) then return end	
+			elseif self.activeThread == 7 then
+                if rot:rotate({jungle.Fishing,}, 1) then return end
             end
         end
     
