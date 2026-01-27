@@ -26,7 +26,7 @@ def trigger_action(score):
     time.sleep(0.05)
     pydirectinput.keyUp(TRIGGER_KEY)
     print(">>> CLICKED <<<")
-    time.sleep(1.0)
+    time.sleep(1.5)
     pydirectinput.keyDown(FISHING_KEY)
     time.sleep(0.05)
     pydirectinput.keyUp(FISHING_KEY)

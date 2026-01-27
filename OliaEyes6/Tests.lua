@@ -8,7 +8,13 @@ local Jungle, jungle = ...
 -- [tst0] Local Developer Scratchpad
 -- Purpose: Diagnostic check for non-targetable Soft Interact objects (Fishing Bobber)
 function tst0()
-	print(jungle.IsFishing())
+    local btn7 = _G["CA_Static_Thread7"]
+    if btn7 then
+        print("Test Pass: Thread 7 exists.")
+        print("Test Check: PostClick script is " .. (btn7:GetScript("PostClick") and "PRESENT (Fail)" or "ABSENT (Pass)"))
+    else
+        print("Test Fail: Thread 7 missing.")
+    end
 end
 
 -- [tst] Core Module Integrity Check

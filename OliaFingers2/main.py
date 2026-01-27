@@ -10,10 +10,25 @@ try:
     virtual_pad = vg.VX360Gamepad()
     BTN = vg.XUSB_BUTTON
     GAMEPAD_MAP = {
-        'PAD1': ('btn', BTN.XUSB_GAMEPAD_A, None), 'PAD2': ('btn', BTN.XUSB_GAMEPAD_B, None),
-        'PAD3': ('btn', BTN.XUSB_GAMEPAD_X, None), 'PAD4': ('btn', BTN.XUSB_GAMEPAD_Y, None),
-        'PAD5': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER, None), 'PAD6': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER, None),
-        'PADLTRIGGER': ('trigger', 'left', 255), 'PADRTRIGGER': ('trigger', 'right', 255),
+        # --- Face Buttons ---
+        'PAD1': ('btn', BTN.XUSB_GAMEPAD_A), 'PAD2': ('btn', BTN.XUSB_GAMEPAD_B),
+        'PAD3': ('btn', BTN.XUSB_GAMEPAD_X), 'PAD4': ('btn', BTN.XUSB_GAMEPAD_Y),
+        # --- Shoulders & Triggers ---
+        'PADLSHOULDER': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER), 'PAD5': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER),
+        'PADRSHOULDER': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER), 'PAD6': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER),
+        'PADLTRIGGER': ('trigger', 'left'), 'PADRTRIGGER': ('trigger', 'right'),
+        # --- D-Pad ---
+        'PADDUP': ('btn', BTN.XUSB_GAMEPAD_DPAD_UP), 'PADDDOWN': ('btn', BTN.XUSB_GAMEPAD_DPAD_DOWN),
+        'PADDLEFT': ('btn', BTN.XUSB_GAMEPAD_DPAD_LEFT), 'PADDRIGHT': ('btn', BTN.XUSB_GAMEPAD_DPAD_RIGHT),
+        # --- Stick Clicks ---
+        'PADLSTICK': ('btn', BTN.XUSB_GAMEPAD_LEFT_THUMB), 'PADRSTICK': ('btn', BTN.XUSB_GAMEPAD_RIGHT_THUMB),
+        # --- Stick Movement (Digital direction to Analog Max) ---
+        'PADLSTICKUP': ('stick', 'left', 0.0, 1.0), 'PADLSTICKDOWN': ('stick', 'left', 0.0, -1.0),
+        'PADLSTICKLEFT': ('stick', 'left', -1.0, 0.0), 'PADLSTICKRIGHT': ('stick', 'left', 1.0, 0.0),
+        'PADRSTICKUP': ('stick', 'right', 0.0, 1.0), 'PADRSTICKDOWN': ('stick', 'right', 0.0, -1.0),
+        'PADRSTICKLEFT': ('stick', 'right', -1.0, 0.0), 'PADRSTICKRIGHT': ('stick', 'right', 1.0, 0.0),
+        # --- System ---
+        'PADFORWARD': ('btn', BTN.XUSB_GAMEPAD_START), 'PADBACK': ('btn', BTN.XUSB_GAMEPAD_BACK),
     }
 except:
     HAS_GAMEPAD_LIB = False
@@ -27,7 +42,14 @@ def normalize_key(lua_key):
     if 'ALT-' in lua_key: modifiers.append('alt'); lua_key = lua_key.replace('ALT-', '')
     if 'SHIFT-' in lua_key: modifiers.append('shift'); lua_key = lua_key.replace('SHIFT-', '')
 
-    key_map = {'MINUS': '-', 'EQUALS': '=', 'RETURN': 'enter', 'SPACE': 'space', 'TAB': 'tab'}
+    if HAS_GAMEPAD_LIB and lua_key in GAMEPAD_MAP:
+        return {'type': 'gamepad', 'key': lua_key, 'modifiers': modifiers}
+
+    key_map = {
+        'MINUS': '-', 'EQUALS': '=', 'RETURN': 'enter', 'SPACE': 'space', 'TAB': 'tab',
+        'LEFTBRACKET': '[', 'RIGHTBRACKET': ']', 'BACKSLASH': '\\',
+        'SEMICOLON': ';', 'QUOTE': "'", 'COMMA': ',', 'PERIOD': '.', 'SLASH': '/'
+    }
     clean_key = lua_key.replace('NUMPAD', 'num ') if 'NUMPAD' in lua_key else key_map.get(lua_key, lua_key.lower())
     return {'type': 'keyboard', 'modifiers': modifiers, 'key': clean_key}
 
@@ -40,6 +62,43 @@ def execute_action(action):
             keyboard.press(action['key']);
             time.sleep(0.05);
             keyboard.release(action['key'])
+
+        elif action['type'] == 'gamepad' and HAS_GAMEPAD_LIB:
+            data = GAMEPAD_MAP.get(action['key'])
+            if data:
+                g_type = data[0]
+                if g_type == 'btn':
+                    virtual_pad.press_button(button=data[1])
+                    virtual_pad.update()
+                    time.sleep(0.05)
+                    virtual_pad.release_button(button=data[1])
+                elif g_type == 'trigger':
+                    # data[1] is 'left' or 'right'
+                    if data[1] == 'left':
+                        virtual_pad.left_trigger(value=255)
+                    else:
+                        virtual_pad.right_trigger(value=255)
+                    virtual_pad.update()
+                    time.sleep(0.05)
+                    if data[1] == 'left':
+                        virtual_pad.left_trigger(value=0)
+                    else:
+                        virtual_pad.right_trigger(value=0)
+                elif g_type == 'stick':
+                    # data = ('stick', side, x, y)
+                    side, x, y = data[1], data[2], data[3]
+                    if side == 'left':
+                        virtual_pad.left_joystick_float(x_value_float=x, y_value_float=y)
+                    else:
+                        virtual_pad.right_joystick_float(x_value_float=x, y_value_float=y)
+                    virtual_pad.update()
+                    time.sleep(0.05)
+                    if side == 'left':
+                        virtual_pad.left_joystick_float(x_value_float=0.0, y_value_float=0.0)
+                    else:
+                        virtual_pad.right_joystick_float(x_value_float=0.0, y_value_float=0.0)
+
+                virtual_pad.update()
     except Exception as e:
         print(f"Execute Error: {e}")
     for mod in reversed(action['modifiers']): keyboard.release(mod)
@@ -103,7 +162,7 @@ if __name__ == "__main__":
                     print(f"Auto Combat: {ACTION_MAP[pixel]['name']}")
                     execute_action(ACTION_MAP[pixel])
                     # Apply the Auto-only delay
-                    time.sleep(0.2)
+                    time.sleep(0.5)
 
             # Process Fishing
             fish.poll()

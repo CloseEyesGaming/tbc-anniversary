@@ -3,6 +3,7 @@ local Jungle, jungle = ...
 --fishing interactive bobber
 SetCVar( "SoftTargetInteractArc", 2 );
 SetCVar( "SoftTargetInteractRange", 30 );
+SetCVar( "GamePadEnable", 1 );
 		
 -- Global Interface for Thread Switching (Mapped to Engine)
 function run_thread1() jungle.Engine:SetThread(1) end

@@ -89,6 +89,7 @@ Hotkeys.ClassSpells = {
         { id = "Rebirth", icon = "Interface\\Icons\\Spell_Nature_Reincarnation" },
 		{ id = "Faerie Fire (Feral)", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
 		{ id = "Faerie Fire", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
+		{ id = "Ravage", icon = "Interface\\Icons\\Ability_Druid_Ravage" },
     },
     ["PRIEST"] = {
         { id = "Flash Heal", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
@@ -321,19 +322,14 @@ Hotkeys.Pool_Rotation = {
     "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT",
 
     -- Symbols & Backspace (11)
-    "CTRL-[", "CTRL-]", "CTRL-\\", "CTRL-;", "CTRL-'", 
+    "CTRL-[", "CTRL-]", "CTRL-;", "CTRL-'", 
     "CTRL-,", "CTRL-.", "CTRL-BACKSPACE",
-	
-	-- [NEW] Readable Aliases
-    "PADLSHOULDER", "PADRSHOULDER",
-    "PADLTRIGGER", "PADRTRIGGER",
-    "PADBACK"
+	    -- Numbers (5)
+    "0", "6", "7", "8", "9",
 }
 
 -- 2. POOL TARGETING (Unmodified Base Keys - 71 Slots)
 Hotkeys.Pool_Targeting = {
-    -- Numbers (5)
-    "0", "6", "7", "8", "9",
 
     -- Letters (7)
     "I", "J", "K", "L", "O", "U", "Y",
@@ -346,7 +342,7 @@ Hotkeys.Pool_Targeting = {
     "UP", "DOWN", "LEFT", "RIGHT",
 
     -- Symbols & Backspace (11)
-    "[", "]", "\\", ";", "'", ",", ".", "BACKSPACE",
+    "[", "]", ";", "'", ",", ".", "BACKSPACE",
 
     -- GamePad Buttons (27)
     "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT",
@@ -355,7 +351,11 @@ Hotkeys.Pool_Targeting = {
     "PADLSTICKUP", "PADLSTICKRIGHT", "PADLSTICKDOWN", "PADLSTICKLEFT",
     "PADRSTICKUP", "PADRSTICKRIGHT", "PADRSTICKDOWN", "PADRSTICKLEFT",
     "PADPADDLE1", "PADPADDLE2", "PADPADDLE3", "PADPADDLE4",
-    "PADFORWARD", "PADSYSTEM", "PADSOCIAL"
+    "PADFORWARD", "PADSYSTEM", "PADSOCIAL",
+		-- [NEW] Readable Aliases
+    "PADLSHOULDER", "PADRSHOULDER",
+    "PADLTRIGGER", "PADRTRIGGER",
+    "PADBACK"
 }
 
 -- ----------------------------------------------------------------------------
@@ -544,7 +544,7 @@ function Hotkeys:CreateDynamicBar()
         btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
         btn:SetAttribute("type", "macro")
-        btn:SetAttribute("macrotext", "/cast [@focus, exists] " .. spellData.id)
+        btn:SetAttribute("macrotext", "/cast [@focus, exists][] " .. spellData.id)
 		
 		btn.debugName = spellData.id 
 		btn.debugKey  = key 

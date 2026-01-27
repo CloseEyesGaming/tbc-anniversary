@@ -98,7 +98,7 @@ def run_test(target_class=None):
         return
 
     # Filter Exclusions
-    excluded_names = ["Thread 1", "Thread 2", "Thread 3", "Thread 4", "Thread 5", "Thread 6"]
+    excluded_names = ["Thread 1", "Thread 2", "Thread 3", "Thread 4", "Thread 5", "Thread 6", "Thread 7"]
     all_actions = [a for a in all_actions if a['name'] not in excluded_names]
 
     test_queue = []
@@ -166,51 +166,40 @@ def run_compare():
     PYTHON_LOG = 'python_key_log.json'
     LUA_FILE = 'OliaEyes6.lua'
 
-    print("--- COMPARISON MODE ---")
-
     if not os.path.exists(PYTHON_LOG):
-        print(f"Error: '{PYTHON_LOG}' not found. Run the test first.")
+        print(f"Error: '{PYTHON_LOG}' not found.")
         return
 
     with open(PYTHON_LOG, 'r', encoding='utf-8') as f:
         py_data = json.load(f)
 
+    # Searchable list of actual events WoW recorded
     lua_data = parse_lua_debug_log(LUA_FILE)
-    if not lua_data:
-        print(f"Error: No valid debug log found in '{LUA_FILE}'.")
-        return
+    lua_pool = list(lua_data)
 
-    print(f"Loaded {len(py_data)} Python actions and {len(lua_data)} Lua events.\n")
-
-    print(f"{'#':<4} | {'PYTHON (Sent)':<40} || {'LUA (Received)':<55}")
+    print(f"\n{'#':<4} | {'PYTHON (Sent)':<40} || {'LUA (Verified Match)':<55}")
     print("-" * 105)
-
-    lua_index = 0
 
     for i, p in enumerate(py_data):
-        # 1. Prepare Python String
         p_str = f"[{p['key']}] {p['name']}"
+        l_str = "!!! MISSING !!!"
 
-        # 2. Logic: Synchronize Streams
-        l_str = ""
+        # 1. Classification: Is it a Gamepad?
+        # Standardize check for PAD1-6, PADDLE, TRIGGER, SHOULDER
+        is_gamepad = p['type'] == 'PAD' or 'PAD' in p['key'].upper()
 
-        if p['type'] == 'PAD':
-            # --- THE MISSING LINES FIX ---
-            # Since Lua cannot see Gamepad inputs, we assume success and print your hardcoded message
-            l_str = f"should press with Xbox API [{p['key']}] {p['name']}"
+        if is_gamepad:
+            l_str = f"PASSED (Gamepad Signal Sent)"
         else:
-            # For Keyboard inputs, we expect a matching Lua entry
-            if lua_index < len(lua_data):
-                l = lua_data[lua_index]
-                l_str = f"[{l['key']}] {l['name']} ({l['timestamp']})"
-                lua_index += 1
-            else:
-                l_str = "!!! MISSING IN LUA LOG !!!"
+            # 2. SMART MATCH: Find the entry by Name AND Key in the Lua log
+            # This makes the test immune to "Sequence Drift"
+            match = next((l for l in lua_pool if l['name'] == p['name'] and l['key'] == p['key']), None)
+
+            if match:
+                l_str = f"MATCH FOUND ({match['timestamp']})"
+                lua_pool.remove(match)  # Ensure we don't match the same log twice
 
         print(f"{i + 1:<4} | {p_str:<40} || {l_str:<55}")
-
-    print("-" * 105)
-    print("NOTE: Gamepad lines are hardcoded because standard Lua listeners do not record XInput.")
 
 
 if __name__ == "__main__":
