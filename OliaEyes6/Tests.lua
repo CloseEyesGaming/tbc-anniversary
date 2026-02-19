@@ -7,122 +7,113 @@ local Jungle, jungle = ...
 -- [tst0] Local Developer Scratchpad
 -- [tst0] Local Developer Scratchpad
 -- Purpose: Diagnostic check for non-targetable Soft Interact objects (Fishing Bobber)
+-- We need a persistent table to store health history
 function tst0()
-    local btn7 = _G["CA_Static_Thread7"]
-    if btn7 then
-        print("Test Pass: Thread 7 exists.")
-        print("Test Check: PostClick script is " .. (btn7:GetScript("PostClick") and "PRESENT (Fail)" or "ABSENT (Pass)"))
-    else
-        print("Test Fail: Thread 7 missing.")
-    end
+print(jungle.isTargetInLos("Mouseover"))
 end
 
--- [tst] Core Module Integrity Check
 function tst()
-    print("|cFF00FF00- OliaEyes Refactor Check (Basic)|r")
-    local pass = true
+    print("--- Running Regression Tests ---")
+
+    -- 1. LoS Module Integrity
+    assert(jungle.Los, "CRITICAL: jungle.Los module is missing!")
     
-    -- 1. Existence Check
-    if not jungle.ReadyCastSpell then print("FAIL ReadyCastSpell missing"); pass = false end
-    if not jungle.Debuff then print("FAIL Debuff missing"); pass = false end
-    if not jungle.LifePercent then print("FAIL LifePercent missing"); pass = false end
-    if not jungle.unitCache then print("FAIL unitCache missing"); pass = false end
-    if not jungle.updateUnitsData then print("FAIL updateUnitsData missing"); pass = false end
+    -- 2. API Name Checks
+    assert(type(jungle.isTargetInLos) == "function", "API: isTargetInLos missing")
+    assert(type(jungle.UnitIsBehindMe) == "function", "API: UnitIsBehindMe missing")
+    assert(type(jungle.ImNotBehindUnit) == "function", "API: ImNotBehindUnit missing")
     
-    -- 2. Functionality Check (GCD)
-    local cdCheck = jungle.SpellOnCD("Swiftmend") 
-    if type(cdCheck) ~= "boolean" then 
-        print("FAIL SpellOnCD returned non-boolean ", type(cdCheck)) 
-        pass = false 
-    end
-    
-    if pass then
-        print("|cFF00FF00PASS Core Modules Loaded & Linked Successfully|r")
-    else
-        print("|cFFFF0000FAIL Verification Failed - Check Logs|r")
-    end
+    -- 3. Logic Check (Self-Test)
+    local selfBlocked = jungle.isTargetInLos('player')
+    assert(selfBlocked == false, "Logic Error: Player is LoS of themselves?")
+
+    print("--- All Tests Passed ---")
 end
 
--- [tst2] Deep Integration Test (DruidStrings)
 function tst2()
-    print("|cFF00FFFF - OliaEyes Druid Deep Test (Regression) -|r")
+    print("|cFF00FF00[TEST]|r STARTING SIMULATION...")
     
-    local _, playerClass = UnitClass("player")
-    if playerClass ~= "DRUID" then
-        print("|cFFFF0000[STOP] Player is not a Druid (Found " .. playerClass .. ")|r")
-        return
+    -- 1. BACKUP REAL API (Safety First)
+    local _UnitCastingInfo = UnitCastingInfo
+    local _GetTime = GetTime
+    local _GetPartyAssignment = GetPartyAssignment
+    local _ReadyCastSpell = jungle.ReadyCastSpell
+    local _UnitIsDeadOrGhost = UnitIsDeadOrGhost
+    
+    -- 2. DEFINE MOCKS
+    local MOCK_TIME = 1000
+    -- Simulates player casting "Regrowth" with 2.0s remaining
+    UnitCastingInfo = function(u) 
+        if u == 'player' then 
+            return "Regrowth", "Regrowth", "", 0, (MOCK_TIME*1000 + 2000), false, nil, 12345 
+        end 
+    end
+    GetTime = function() return MOCK_TIME end
+    GetPartyAssignment = function(r, u) return (r == "MAINTANK" and u == "raid1") end
+    jungle.ReadyCastSpell = function() return true end
+    UnitIsDeadOrGhost = function() return false end
+
+    -- 3. SETUP JUNGLE CACHE (The Scenario)
+    -- Scenario: 'raid1' is a Tank. He has 3 Stacks of Lifebloom.
+    -- They expire in 0.5 seconds (CRITICAL DANGER).
+    jungle.unitCache['raid1'] = {
+        isTank = true,
+        isInCombat = true,
+        currLife = 0.8,
+        auras = { 
+            buffs = { 
+                player = { 
+                    ['Lifebloom'] = { count=3, expirationTime=(MOCK_TIME + 0.5) } 
+                },
+                nonplayer = {}, slowImmunity = {}, unitIgnoreIfYouCaster = {}, unitIgnoreIfYouPhys = {}
+            },
+            debuffs = { all={}, magic={}, curse={}, poison={}, disease={}, slow={}, root={}, freedom={}, unitIgnore={} }
+        }
+    }
+
+    -- ------------------------------------------------------------------------
+    -- TEST CASE 1: INTERRUPT LOGIC
+    -- ------------------------------------------------------------------------
+    print("Test 1: Interrupt Tank Emergency (LB < 1.0s)...")
+    -- We are casting Regrowth. Tank LB is 0.5s. Interrupt MUST return true.
+    local intResult = jungle.Interrupt(1)
+    
+    if intResult then 
+        print("|cFF00FF00[PASS]|r Interrupt Triggered Correctly.") 
+    else 
+        print("|cFFFF0000[FAIL]|r Interrupt FAILED to trigger.") 
     end
 
-    -- 1. Spell Cooldown
-    local spell1 = "Swiftmend"
-    local onCD = jungle.SpellOnCD(spell1)
-    local readyTime = jungle.TimeToReady(spell1)
-    local onCDStr = onCD and "|cFFFF0000TRUE|r" or "|cFF00FF00FALSE|r"
-    print(string.format("[Test 1] Spell '%s' OnCD %s  TimeToReady %.2fs", spell1, onCDStr, readyTime))
-
-    -- 2. Buff Scanning
-    local buff1 = "Rejuvenation"
-    local hasRejuv = jungle.Buff(buff1, "player")
-    if hasRejuv then
-        local _, _, _, _, _, expirationTime = AuraUtil.FindAuraByName(buff1, "player", "HELPFUL")
-        local remaining = (expirationTime or 0) - GetTime()
-        print(string.format("[Test 2] Buff '%s' |cFF00FF00FOUND|r  Expires in %.1fs", buff1, remaining))
-    else
-        print(string.format("[Test 2] Buff '%s' |cFFFF0000NOT FOUND|r (Cast it on yourself)", buff1))
-    end
-
-    -- 3. Debuff Scanning
-    local debuff1 = "Moonfire"
-    local targetExists = UnitExists("target")
-    if not targetExists then
-        print("[Test 3] Debuff Scan |cFF888888SKIPPED (No Target)|r")
-    else
-        local hasMoonfire = jungle.Debuff(debuff1, "target", nil)
-        if hasMoonfire then
-            local _, _, _, _, _, expirationTime = AuraUtil.FindAuraByName(debuff1, "target", "HARMFUL")
-            local remaining = (expirationTime or 0) - GetTime()
-            print(string.format("[Test 3] Debuff '%s' |cFF00FF00FOUND|r  Expires in %.1fs", debuff1, remaining))
-        else
-            print(string.format("[Test 3] Debuff '%s' |cFFFF0000NOT FOUND|r (Cast on target)", debuff1))
+    -- ------------------------------------------------------------------------
+    -- TEST CASE 2: PvE OOC ROLLING
+    -- ------------------------------------------------------------------------
+    print("Test 2: PvE Out-of-Combat Rolling...")
+    -- Change State: Not in combat, LB count is 1.
+    jungle.unitCache['raid1'].isInCombat = false
+    jungle.unitCache['raid1'].auras.buffs.player['Lifebloom'] = { count=1, expirationTime=(MOCK_TIME + 1.0) }
+    
+    local rot = jungle.pveHealSet('raid1')
+    local found = false
+    
+    -- Look for the specific rule "LB Tank OOC" being true
+    for _, v in ipairs(rot) do
+        if v[1] == "LB Tank OOC" and v[2] == "Lifebloom" and v[3] == true then 
+            found = true 
+            break 
         end
     end
 
-    -- 4. Castability
-    local canCastRejuv = jungle.ReadyCastSpell(buff1, "player")
-    local canCastStr = canCastRejuv and "|cFF00FF00YES|r" or "|cFFFF0000NO|r"
-    print(string.format("[Test 4] Can Cast '%s' %s", buff1, canCastStr))
-
-    print("|cFF00FFFF--- End Test ---|r")
-end
-
--- [tst3] Optimization Verification (Table Recycling)
-function tst3()
-    print("|cFF00FFFF - OliaEyes Memory Stability Test -|r")
-    
-    -- 1. Populate Cache
-    jungle.updateUnitsData()
-    local unit1 = jungle.unitCache['player']
-    
-    if not unit1 then
-        print("|cFFFF0000[FAIL] Player not in cache (Run /reload or target self)|r")
-        return
+    if found then 
+        print("|cFF00FF00[PASS]|r OOC Roll Logic Selected.") 
+    else 
+        print("|cFFFF0000[FAIL]|r OOC Roll Logic NOT selected.") 
     end
-    
-    -- Capture Memory Pointer (Lua treats table variables as references/pointers)
-    local addr1 = tostring(unit1)
-    
-    -- 2. Force Update Cycle (Should Trigger Recycling)
-    jungle.updateUnitsData()
-    local unit2 = jungle.unitCache['player']
-    local addr2 = tostring(unit2)
-    
-    -- 3. Compare Pointers
-    print(string.format("Cycle 1 Pointer: %s", addr1))
-    print(string.format("Cycle 2 Pointer: %s", addr2))
-    
-    if addr1 == addr2 then
-        print("|cFF00FF00[PASS] Memory Stable - Tables are Recycled|r")
-    else
-        print("|cFFFF0000[FAIL] Memory Unstable - New Table Allocated (Bottleneck Persists)|r")
-    end
+
+    -- 5. RESTORE REAL API
+    UnitCastingInfo = _UnitCastingInfo
+    GetTime = _GetTime
+    GetPartyAssignment = _GetPartyAssignment
+    jungle.ReadyCastSpell = _ReadyCastSpell
+    UnitIsDeadOrGhost = _UnitIsDeadOrGhost
+    print("|cFF00FF00[TEST]|r SIMULATION COMPLETE.")
 end

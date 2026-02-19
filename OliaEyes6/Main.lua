@@ -3,7 +3,15 @@ local Jungle, jungle = ...
 --fishing interactive bobber
 SetCVar( "SoftTargetInteractArc", 2 );
 SetCVar( "SoftTargetInteractRange", 30 );
-SetCVar( "GamePadEnable", 1 );
+-- Core Gamepad Lockdown (Fixes Camera Lock and PAD5/6 failures)
+SetCVar("GamepadEnable", "1")
+SetCVar("GamepadOverlapMouseMs", "0")        -- INSTANT mouse priority
+SetCVar("GamepadCameraLook", "0")            -- Disable stick camera move
+SetCVar("GamepadCursorAutoEnable", "0")      -- Disable virtual mouse
+SetCVar("GamepadCursorLeftClick", "NONE")
+SetCVar("GamepadCursorRightClick", "NONE")
+SetCVar("GamepadCursorCentering", "0")
+SetCVar("GamepadCursorSpeed", "0")
 		
 -- Global Interface for Thread Switching (Mapped to Engine)
 function run_thread1() jungle.Engine:SetThread(1) end

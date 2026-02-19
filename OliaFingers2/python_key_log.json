@@ -1,7 +1,7 @@
 [
     {
         "index": 1,
-        "timestamp": "00:20:02",
+        "timestamp": "15:10:50",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "Attack",
@@ -9,7 +9,7 @@
     },
     {
         "index": 2,
-        "timestamp": "00:20:03",
+        "timestamp": "15:10:51",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "ClearFocus",
@@ -17,7 +17,7 @@
     },
     {
         "index": 3,
-        "timestamp": "00:20:03",
+        "timestamp": "15:10:51",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "Fishing",
@@ -25,7 +25,7 @@
     },
     {
         "index": 4,
-        "timestamp": "00:20:04",
+        "timestamp": "15:10:51",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "Stopcasting",
@@ -33,7 +33,7 @@
     },
     {
         "index": 5,
-        "timestamp": "00:20:04",
+        "timestamp": "15:10:52",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "arena1",
@@ -41,7 +41,7 @@
     },
     {
         "index": 6,
-        "timestamp": "00:20:05",
+        "timestamp": "15:10:52",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "arena2",
@@ -49,7 +49,7 @@
     },
     {
         "index": 7,
-        "timestamp": "00:20:05",
+        "timestamp": "15:10:53",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "arena3",
@@ -57,7 +57,7 @@
     },
     {
         "index": 8,
-        "timestamp": "00:20:05",
+        "timestamp": "15:10:53",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "arena4",
@@ -65,7 +65,7 @@
     },
     {
         "index": 9,
-        "timestamp": "00:20:06",
+        "timestamp": "15:10:54",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "arena5",
@@ -73,7 +73,7 @@
     },
     {
         "index": 10,
-        "timestamp": "00:20:06",
+        "timestamp": "15:10:54",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "focus",
@@ -81,7 +81,7 @@
     },
     {
         "index": 11,
-        "timestamp": "00:20:07",
+        "timestamp": "15:10:55",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "mouseover",
@@ -89,7 +89,7 @@
     },
     {
         "index": 12,
-        "timestamp": "00:20:07",
+        "timestamp": "15:10:55",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "party1",
@@ -97,7 +97,7 @@
     },
     {
         "index": 13,
-        "timestamp": "00:20:08",
+        "timestamp": "15:10:56",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "party2",
@@ -105,7 +105,7 @@
     },
     {
         "index": 14,
-        "timestamp": "00:20:08",
+        "timestamp": "15:10:56",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "party3",
@@ -113,7 +113,7 @@
     },
     {
         "index": 15,
-        "timestamp": "00:20:09",
+        "timestamp": "15:10:56",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "party4",
@@ -121,7 +121,7 @@
     },
     {
         "index": 16,
-        "timestamp": "00:20:09",
+        "timestamp": "15:10:57",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "pet",
@@ -129,7 +129,7 @@
     },
     {
         "index": 17,
-        "timestamp": "00:20:10",
+        "timestamp": "15:10:57",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "pettarget",
@@ -137,7 +137,7 @@
     },
     {
         "index": 18,
-        "timestamp": "00:20:10",
+        "timestamp": "15:10:58",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "player",
@@ -145,7 +145,7 @@
     },
     {
         "index": 19,
-        "timestamp": "00:20:10",
+        "timestamp": "15:10:58",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid1",
@@ -153,7 +153,7 @@
     },
     {
         "index": 20,
-        "timestamp": "00:20:11",
+        "timestamp": "15:10:59",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid10",
@@ -161,7 +161,7 @@
     },
     {
         "index": 21,
-        "timestamp": "00:20:11",
+        "timestamp": "15:10:59",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid11",
@@ -169,7 +169,7 @@
     },
     {
         "index": 22,
-        "timestamp": "00:20:12",
+        "timestamp": "15:11:00",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid12",
@@ -177,7 +177,7 @@
     },
     {
         "index": 23,
-        "timestamp": "00:20:12",
+        "timestamp": "15:11:00",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid13",
@@ -185,7 +185,7 @@
     },
     {
         "index": 24,
-        "timestamp": "00:20:13",
+        "timestamp": "15:11:01",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid14",
@@ -193,7 +193,7 @@
     },
     {
         "index": 25,
-        "timestamp": "00:20:13",
+        "timestamp": "15:11:01",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid15",
@@ -201,7 +201,7 @@
     },
     {
         "index": 26,
-        "timestamp": "00:20:14",
+        "timestamp": "15:11:01",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid16",
@@ -209,7 +209,7 @@
     },
     {
         "index": 27,
-        "timestamp": "00:20:14",
+        "timestamp": "15:11:02",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid17",
@@ -217,7 +217,7 @@
     },
     {
         "index": 28,
-        "timestamp": "00:20:15",
+        "timestamp": "15:11:02",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid18",
@@ -225,7 +225,7 @@
     },
     {
         "index": 29,
-        "timestamp": "00:20:15",
+        "timestamp": "15:11:03",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid19",
@@ -233,7 +233,7 @@
     },
     {
         "index": 30,
-        "timestamp": "00:20:15",
+        "timestamp": "15:11:03",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid2",
@@ -241,7 +241,7 @@
     },
     {
         "index": 31,
-        "timestamp": "00:20:16",
+        "timestamp": "15:11:04",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid20",
@@ -249,7 +249,7 @@
     },
     {
         "index": 32,
-        "timestamp": "00:20:16",
+        "timestamp": "15:11:04",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid21",
@@ -257,7 +257,7 @@
     },
     {
         "index": 33,
-        "timestamp": "00:20:17",
+        "timestamp": "15:11:05",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid22",
@@ -265,7 +265,7 @@
     },
     {
         "index": 34,
-        "timestamp": "00:20:17",
+        "timestamp": "15:11:05",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid23",
@@ -273,55 +273,55 @@
     },
     {
         "index": 35,
-        "timestamp": "00:20:18",
+        "timestamp": "15:11:05",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid24",
-        "key": "PAD5"
-    },
-    {
-        "index": 36,
-        "timestamp": "00:20:18",
-        "type": "PAD",
-        "class": "GLOBAL",
-        "name": "raid25",
-        "key": "PAD6"
-    },
-    {
-        "index": 37,
-        "timestamp": "00:20:19",
-        "type": "PAD",
-        "class": "GLOBAL",
-        "name": "raid26",
         "key": "PADLSTICK"
     },
     {
-        "index": 38,
-        "timestamp": "00:20:19",
+        "index": 36,
+        "timestamp": "15:11:06",
         "type": "PAD",
         "class": "GLOBAL",
-        "name": "raid27",
+        "name": "raid25",
         "key": "PADRSTICK"
     },
     {
+        "index": 37,
+        "timestamp": "15:11:06",
+        "type": "PAD",
+        "class": "GLOBAL",
+        "name": "raid26",
+        "key": "PADFORWARD"
+    },
+    {
+        "index": 38,
+        "timestamp": "15:11:07",
+        "type": "PAD",
+        "class": "GLOBAL",
+        "name": "raid27",
+        "key": "PADLSHOULDER"
+    },
+    {
         "index": 39,
-        "timestamp": "00:20:19",
+        "timestamp": "15:11:07",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid28",
-        "key": "PADLSTICKUP"
+        "key": "PADRSHOULDER"
     },
     {
         "index": 40,
-        "timestamp": "00:20:20",
+        "timestamp": "15:11:08",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid29",
-        "key": "PADLSTICKRIGHT"
+        "key": "PADLTRIGGER"
     },
     {
         "index": 41,
-        "timestamp": "00:20:20",
+        "timestamp": "15:11:08",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid3",
@@ -329,87 +329,87 @@
     },
     {
         "index": 42,
-        "timestamp": "00:20:21",
+        "timestamp": "15:11:09",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid30",
-        "key": "PADLSTICKDOWN"
+        "key": "PADRTRIGGER"
     },
     {
         "index": 43,
-        "timestamp": "00:20:21",
+        "timestamp": "15:11:09",
         "type": "PAD",
         "class": "GLOBAL",
         "name": "raid31",
-        "key": "PADLSTICKLEFT"
+        "key": "PADBACK"
     },
     {
         "index": 44,
-        "timestamp": "00:20:22",
-        "type": "PAD",
+        "timestamp": "15:11:10",
+        "type": "KBD",
         "class": "GLOBAL",
         "name": "raid32",
-        "key": "PADRSTICKUP"
+        "key": "ALT-I"
     },
     {
         "index": 45,
-        "timestamp": "00:20:22",
-        "type": "PAD",
+        "timestamp": "15:11:10",
+        "type": "KBD",
         "class": "GLOBAL",
         "name": "raid33",
-        "key": "PADRSTICKRIGHT"
+        "key": "ALT-J"
     },
     {
         "index": 46,
-        "timestamp": "00:20:23",
-        "type": "PAD",
+        "timestamp": "15:11:10",
+        "type": "KBD",
         "class": "GLOBAL",
         "name": "raid34",
-        "key": "PADRSTICKDOWN"
+        "key": "ALT-K"
     },
     {
         "index": 47,
-        "timestamp": "00:20:23",
-        "type": "PAD",
+        "timestamp": "15:11:11",
+        "type": "KBD",
         "class": "GLOBAL",
         "name": "raid35",
-        "key": "PADRSTICKLEFT"
+        "key": "ALT-L"
     },
     {
         "index": 48,
-        "timestamp": "00:20:24",
+        "timestamp": "15:11:11",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid36",
-        "key": "PADPADDLE1"
+        "key": "ALT-O"
     },
     {
         "index": 49,
-        "timestamp": "00:20:24",
+        "timestamp": "15:11:12",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid37",
-        "key": "PADPADDLE2"
+        "key": "ALT-U"
     },
     {
         "index": 50,
-        "timestamp": "00:20:24",
+        "timestamp": "15:11:12",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid38",
-        "key": "PADPADDLE3"
+        "key": "ALT-Y"
     },
     {
         "index": 51,
-        "timestamp": "00:20:25",
+        "timestamp": "15:11:13",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid39",
-        "key": "PADPADDLE4"
+        "key": "ALT-["
     },
     {
         "index": 52,
-        "timestamp": "00:20:25",
+        "timestamp": "15:11:13",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid4",
@@ -417,15 +417,15 @@
     },
     {
         "index": 53,
-        "timestamp": "00:20:26",
-        "type": "PAD",
+        "timestamp": "15:11:14",
+        "type": "KBD",
         "class": "GLOBAL",
         "name": "raid40",
-        "key": "PADFORWARD"
+        "key": "ALT-]"
     },
     {
         "index": 54,
-        "timestamp": "00:20:26",
+        "timestamp": "15:11:14",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid5",
@@ -433,7 +433,7 @@
     },
     {
         "index": 55,
-        "timestamp": "00:20:27",
+        "timestamp": "15:11:15",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid6",
@@ -441,7 +441,7 @@
     },
     {
         "index": 56,
-        "timestamp": "00:20:27",
+        "timestamp": "15:11:15",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid7",
@@ -449,7 +449,7 @@
     },
     {
         "index": 57,
-        "timestamp": "00:20:27",
+        "timestamp": "15:11:15",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid8",
@@ -457,7 +457,7 @@
     },
     {
         "index": 58,
-        "timestamp": "00:20:28",
+        "timestamp": "15:11:16",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "raid9",
@@ -465,7 +465,7 @@
     },
     {
         "index": 59,
-        "timestamp": "00:20:28",
+        "timestamp": "15:11:16",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "target",
@@ -473,7 +473,7 @@
     },
     {
         "index": 60,
-        "timestamp": "00:20:29",
+        "timestamp": "15:11:17",
         "type": "KBD",
         "class": "GLOBAL",
         "name": "targettarget",
@@ -481,359 +481,351 @@
     },
     {
         "index": 61,
-        "timestamp": "00:20:29",
+        "timestamp": "15:11:17",
         "type": "KBD",
         "class": "DRUID",
         "name": "Abolish Poison",
-        "key": "6"
+        "key": "CTRL-."
     },
     {
         "index": 62,
-        "timestamp": "00:20:30",
+        "timestamp": "15:11:18",
         "type": "KBD",
         "class": "DRUID",
         "name": "Barkskin",
-        "key": "CTRL-F3"
+        "key": "CTRL-F2"
     },
     {
         "index": 63,
-        "timestamp": "00:20:30",
+        "timestamp": "15:11:18",
         "type": "KBD",
         "class": "DRUID",
         "name": "Bash",
-        "key": "CTRL-PAGEUP"
+        "key": "CTRL-END"
     },
     {
         "index": 64,
-        "timestamp": "00:20:31",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Bear Form",
-        "key": "CTRL-LEFT"
-    },
-    {
-        "index": 65,
-        "timestamp": "00:20:31",
+        "timestamp": "15:11:19",
         "type": "KBD",
         "class": "DRUID",
         "name": "Cat Form",
-        "key": "CTRL-DOWN"
-    },
-    {
-        "index": 66,
-        "timestamp": "00:20:31",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Claw",
         "key": "CTRL-UP"
     },
     {
-        "index": 67,
-        "timestamp": "00:20:32",
+        "index": 65,
+        "timestamp": "15:11:19",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Claw",
+        "key": "CTRL-PAGEDOWN"
+    },
+    {
+        "index": 66,
+        "timestamp": "15:11:19",
         "type": "KBD",
         "class": "DRUID",
         "name": "Cyclone",
         "key": "CTRL-U"
     },
     {
-        "index": 68,
-        "timestamp": "00:20:32",
+        "index": 67,
+        "timestamp": "15:11:20",
         "type": "KBD",
         "class": "DRUID",
         "name": "Dire Bear Form",
-        "key": "CTRL-RIGHT"
+        "key": "CTRL-DOWN"
     },
     {
-        "index": 69,
-        "timestamp": "00:20:33",
+        "index": 68,
+        "timestamp": "15:11:20",
         "type": "KBD",
         "class": "DRUID",
         "name": "Entangling Roots",
         "key": "CTRL-O"
     },
     {
+        "index": 69,
+        "timestamp": "15:11:21",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Faerie Fire",
+        "key": "6"
+    },
+    {
         "index": 70,
-        "timestamp": "00:20:33",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Faerie Fire",
-        "key": "CTRL-Y"
-    },
-    {
-        "index": 71,
-        "timestamp": "00:20:34",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Faerie Fire",
-        "key": "9"
-    },
-    {
-        "index": 72,
-        "timestamp": "00:20:34",
+        "timestamp": "15:11:21",
         "type": "KBD",
         "class": "DRUID",
         "name": "Faerie Fire (Feral)",
-        "key": "8"
+        "key": "0"
     },
     {
-        "index": 73,
-        "timestamp": "00:20:35",
+        "index": 71,
+        "timestamp": "15:11:22",
         "type": "KBD",
         "class": "DRUID",
         "name": "Feral Charge",
-        "key": "CTRL-PAGEDOWN"
+        "key": "CTRL-PAGEUP"
     },
     {
-        "index": 74,
-        "timestamp": "00:20:35",
+        "index": 72,
+        "timestamp": "15:11:22",
         "type": "KBD",
         "class": "DRUID",
         "name": "Ferocious Bite",
-        "key": "CTRL-F10"
+        "key": "CTRL-F9"
     },
     {
-        "index": 75,
-        "timestamp": "00:20:36",
+        "index": 73,
+        "timestamp": "15:11:23",
         "type": "KBD",
         "class": "DRUID",
         "name": "Force of Nature",
-        "key": "CTRL-F6"
+        "key": "CTRL-F5"
     },
     {
-        "index": 76,
-        "timestamp": "00:20:36",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Gift of the Wild",
-        "key": "CTRL-."
-    },
-    {
-        "index": 77,
-        "timestamp": "00:20:36",
+        "index": 74,
+        "timestamp": "15:11:23",
         "type": "KBD",
         "class": "DRUID",
         "name": "Healing Touch",
         "key": "CTRL-8"
     },
     {
-        "index": 78,
-        "timestamp": "00:20:37",
+        "index": 75,
+        "timestamp": "15:11:24",
         "type": "KBD",
         "class": "DRUID",
         "name": "Hibernate",
-        "key": "CTRL-F1"
+        "key": "CTRL-Y"
     },
     {
-        "index": 79,
-        "timestamp": "00:20:37",
+        "index": 76,
+        "timestamp": "15:11:24",
         "type": "KBD",
         "class": "DRUID",
         "name": "Innervate",
-        "key": "CTRL-F2"
+        "key": "CTRL-F1"
     },
     {
-        "index": 80,
-        "timestamp": "00:20:38",
+        "index": 77,
+        "timestamp": "15:11:24",
         "type": "KBD",
         "class": "DRUID",
         "name": "Insect Swarm",
         "key": "CTRL-J"
     },
     {
-        "index": 81,
-        "timestamp": "00:20:38",
+        "index": 78,
+        "timestamp": "15:11:25",
         "type": "KBD",
         "class": "DRUID",
         "name": "Lacerate",
-        "key": "CTRL-HOME"
+        "key": "CTRL-DELETE"
     },
     {
-        "index": 82,
-        "timestamp": "00:20:39",
+        "index": 79,
+        "timestamp": "15:11:25",
         "type": "KBD",
         "class": "DRUID",
         "name": "Lifebloom",
         "key": "CTRL-0"
     },
     {
-        "index": 83,
-        "timestamp": "00:20:39",
+        "index": 80,
+        "timestamp": "15:11:26",
         "type": "KBD",
         "class": "DRUID",
         "name": "Mangle (Bear)",
+        "key": "CTRL-F12"
+    },
+    {
+        "index": 81,
+        "timestamp": "15:11:26",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Mangle (Cat)",
+        "key": "CTRL-F6"
+    },
+    {
+        "index": 82,
+        "timestamp": "15:11:27",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Mark of the Wild",
+        "key": "CTRL-]"
+    },
+    {
+        "index": 83,
+        "timestamp": "15:11:27",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Maul",
         "key": "CTRL-INSERT"
     },
     {
         "index": 84,
-        "timestamp": "00:20:40",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Mangle (Cat)",
-        "key": "CTRL-F7"
-    },
-    {
-        "index": 85,
-        "timestamp": "00:20:40",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Mark of the Wild",
-        "key": "CTRL-'"
-    },
-    {
-        "index": 86,
-        "timestamp": "00:20:40",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Maul",
-        "key": "CTRL-DELETE"
-    },
-    {
-        "index": 87,
-        "timestamp": "00:20:41",
+        "timestamp": "15:11:28",
         "type": "KBD",
         "class": "DRUID",
         "name": "Moonfire",
         "key": "CTRL-I"
     },
     {
-        "index": 88,
-        "timestamp": "00:20:41",
+        "index": 85,
+        "timestamp": "15:11:28",
         "type": "KBD",
         "class": "DRUID",
         "name": "Moonkin Form",
-        "key": "CTRL-]"
+        "key": "CTRL-RIGHT"
     },
     {
-        "index": 89,
-        "timestamp": "00:20:42",
+        "index": 86,
+        "timestamp": "15:11:29",
         "type": "KBD",
         "class": "DRUID",
         "name": "Nature's Swiftness",
-        "key": "CTRL-F5"
+        "key": "CTRL-F3"
     },
     {
-        "index": 90,
-        "timestamp": "00:20:42",
+        "index": 87,
+        "timestamp": "15:11:29",
         "type": "KBD",
         "class": "DRUID",
         "name": "Omen of Clarity",
-        "key": "CTRL-BACKSPACE"
+        "key": "CTRL-'"
     },
     {
-        "index": 91,
-        "timestamp": "00:20:43",
+        "index": 88,
+        "timestamp": "15:11:29",
         "type": "KBD",
         "class": "DRUID",
         "name": "Pounce",
-        "key": "CTRL-F12"
-    },
-    {
-        "index": 92,
-        "timestamp": "00:20:43",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Rake",
         "key": "CTRL-F11"
     },
     {
-        "index": 93,
-        "timestamp": "00:20:44",
+        "index": 89,
+        "timestamp": "15:11:30",
         "type": "KBD",
         "class": "DRUID",
-        "name": "Rebirth",
+        "name": "Rake",
+        "key": "CTRL-F10"
+    },
+    {
+        "index": 90,
+        "timestamp": "15:11:30",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Ravage",
         "key": "7"
     },
     {
-        "index": 94,
-        "timestamp": "00:20:44",
+        "index": 91,
+        "timestamp": "15:11:31",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Rebirth",
+        "key": "CTRL-BACKSPACE"
+    },
+    {
+        "index": 92,
+        "timestamp": "15:11:31",
         "type": "KBD",
         "class": "DRUID",
         "name": "Regrowth",
         "key": "CTRL-7"
     },
     {
-        "index": 95,
-        "timestamp": "00:20:45",
+        "index": 93,
+        "timestamp": "15:11:32",
         "type": "KBD",
         "class": "DRUID",
         "name": "Rejuvenation",
         "key": "CTRL-6"
     },
     {
-        "index": 96,
-        "timestamp": "00:20:45",
+        "index": 94,
+        "timestamp": "15:11:32",
         "type": "KBD",
         "class": "DRUID",
         "name": "Remove Curse",
-        "key": "0"
+        "key": "CTRL-,"
     },
     {
-        "index": 97,
-        "timestamp": "00:20:45",
+        "index": 95,
+        "timestamp": "15:11:33",
         "type": "KBD",
         "class": "DRUID",
         "name": "Rip",
-        "key": "CTRL-F9"
-    },
-    {
-        "index": 98,
-        "timestamp": "00:20:46",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Shred",
         "key": "CTRL-F8"
     },
     {
-        "index": 99,
-        "timestamp": "00:20:46",
+        "index": 96,
+        "timestamp": "15:11:33",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Shred",
+        "key": "CTRL-F7"
+    },
+    {
+        "index": 97,
+        "timestamp": "15:11:33",
         "type": "KBD",
         "class": "DRUID",
         "name": "Starfire",
         "key": "CTRL-L"
     },
     {
-        "index": 100,
-        "timestamp": "00:20:47",
+        "index": 98,
+        "timestamp": "15:11:34",
         "type": "KBD",
         "class": "DRUID",
         "name": "Swiftmend",
         "key": "CTRL-9"
     },
     {
-        "index": 101,
-        "timestamp": "00:20:47",
+        "index": 99,
+        "timestamp": "15:11:34",
         "type": "KBD",
         "class": "DRUID",
         "name": "Swipe",
-        "key": "CTRL-END"
+        "key": "CTRL-HOME"
     },
     {
-        "index": 102,
-        "timestamp": "00:20:48",
+        "index": 100,
+        "timestamp": "15:11:35",
         "type": "KBD",
         "class": "DRUID",
         "name": "Thorns",
-        "key": "CTRL-,"
+        "key": "CTRL-;"
     },
     {
-        "index": 103,
-        "timestamp": "00:20:48",
+        "index": 101,
+        "timestamp": "15:11:35",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Tiger's Fury",
+        "key": "8"
+    },
+    {
+        "index": 102,
+        "timestamp": "15:11:36",
         "type": "KBD",
         "class": "DRUID",
         "name": "Travel Form",
+        "key": "CTRL-LEFT"
+    },
+    {
+        "index": 103,
+        "timestamp": "15:11:36",
+        "type": "KBD",
+        "class": "DRUID",
+        "name": "Tree of Life",
         "key": "CTRL-["
     },
     {
         "index": 104,
-        "timestamp": "00:20:49",
-        "type": "KBD",
-        "class": "DRUID",
-        "name": "Tree of Life",
-        "key": "CTRL-;"
-    },
-    {
-        "index": 105,
-        "timestamp": "00:20:49",
+        "timestamp": "15:11:37",
         "type": "KBD",
         "class": "DRUID",
         "name": "Wrath",

@@ -178,3 +178,14 @@ jungle.isHasOneOfBuffs   = function(t, list) for k in pairs(list) do if Buff(k, 
 
 -- Legacy Shims (For backward compatibility if needed)
 jungle.hasAuraType = function(_target, _filter, _type) return (hasAuraTypeCount(_target, _filter, _type) > 0) end
+
+-- Normalized Dispel Helpers
+function jungle.isExtremePoison(unit)
+    -- Checks if unit has a Poison debuff that is also in the priority CC list
+    return jungle.CheckDispellableDebuffs(unit, jungle.allCcList, 'Poison')
+end
+
+function jungle.isExtremeCursed(unit)
+    -- Checks if unit has a Curse debuff that is also in the priority CC list
+    return jungle.CheckDispellableDebuffs(unit, jungle.allCcList, 'Curse')
+end

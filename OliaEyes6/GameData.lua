@@ -16,6 +16,17 @@ local toFreedomDebuffs = {
 }
 jungle.toFreedomDebuffs = toFreedomDebuffs
 
+local healDebuffs = {
+    -- [[ PRIORITY HEAL DEBUFFS ]]
+    -- Add debuffs here that require immediate healing attention (e.g. Mortal Strike)
+    "Mortal Strike",
+	"Wound Poison",
+	"Curse of Tongues",
+	"Fear",
+	"Silence",
+}
+jungle.healDebuffs = healDebuffs
+
 local slowImmunityBuffs = {
 	"Master's Call",
 	"Cauterize",

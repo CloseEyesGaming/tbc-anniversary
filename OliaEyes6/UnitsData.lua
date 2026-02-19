@@ -147,7 +147,7 @@ local function cacheUnitData(unit, _identificator)
 	u.isInCombat = UnitAffectingCombat(unit)
 	u.currLife = jungle.LifePercent(unit)
 	u.threatStatus = UnitThreatSituation(unit)
-	u.isTank = UnitGroupRolesAssigned(unit)=='TANK'
+	u.isTank = (UnitGroupRolesAssigned(unit) == 'TANK') or (GetPartyAssignment("MAINTANK", unit) == true)
     
     -- Auras are handled by parser calling into u.auras
 end
@@ -166,21 +166,32 @@ local function clearCacheData(identificator)
 end
 
 local function cacheEveryUnit(_identificator)
-	local identificator = math.random(100, 999)
+    local identificator = math.random(100, 999)
     local groupType
-	local player = false 
-	local _, instanceType = IsInInstance()
-	
-    -- FLOW CHANGE: Do NOT clear first. Update valid units, THEN clear stale ones.
-    -- This allows recycling of tables.
+    local player = false 
+    local _, instanceType = IsInInstance()
     
+	-- 1. Universal Token Scan
+		local universalTokens = {"player", "target", "focus", "mouseover", "pet"}
+		for _, token in ipairs(universalTokens) do
+			if UnitExists(token) and not UnitIsDeadOrGhost(token) then
+				-- FACT: This is the critical "Blacklist" gate
+				-- Only cache if it's the player OR if the unit is NOT blacklisted
+				if token == "player" or not jungle.isTargetInLos(token) then
+					cacheUnitData(token, identificator)
+					auraParser(token)
+				end
+			end
+		end
+
+    -- 2. Group Scanning Logic (Unchanged)
     if UnitExists('raid1') then
         groupType = 'raid'
     elseif UnitExists('party1') then
         groupType = 'party'
-		player = true
-	else
-		player = true
+        player = true
+    else
+        player = true
     end
 	
 	if player and not UnitIsDeadOrGhost('player') then
@@ -270,7 +281,7 @@ local function isUnitAvailable(_unit)
 	and unitCache[_unit]
 	and next(unitCache[_unit].auras.debuffs.unitIgnore)==nil
 	then
-		if UnitCanAttack('player', _unit) then
+		if UnitCanAttack('player', _unit) and not jungle.isTargetInLos(_unit) then
 			-- CASTER / HEALER LOGIC
 			if (
 				(engClass == "MAGE") or (engClass == "PRIEST") or (engClass == "WARLOCK")
@@ -294,7 +305,7 @@ local function isUnitAvailable(_unit)
 		end
 		
 		-- Logic for Friendly Targets (Heals)
-		if not UnitCanAttack('player', _unit) then
+		if not UnitCanAttack('player', _unit) and not jungle.isTargetInLos(_unit) then
 			return true
 		end
 	end
@@ -328,43 +339,66 @@ end
 jungle.bloomFriendsCount = bloomFriendsCount
 
 local function unitCacheBuff(_unit, _aura, _PLAYER, _expired, _counts)
-	local _expired = _expired or 0
-	local _counts = _counts or 0
-	local buffList = _PLAYER and unitCache[_unit].auras.buffs.player or unitCache[_unit].auras.buffs.nonplayer
-	
-	-- Fallback check for nonplayer if checking generic
-	local auraData = buffList[_aura]
-	if not _PLAYER and not auraData then
-		auraData = unitCache[_unit].auras.buffs.player[_aura]
-	end
+    -- 1. SAFETY GUARD:
+    -- Returns false if unit is dead, out of LoS (missing from cache), or doesn't exist.
+    if not _unit or not unitCache[_unit] or not unitCache[_unit].auras then 
+        return false 
+    end
 
-	if auraData then
-		if (auraData.expirationTime - GetTime()) >= _expired
-		and auraData.count >= _counts then
-			return true
-		end
-	end
-	return false
+    local _expired = _expired or 0
+    local _counts = _counts or 0
+    local buffs = unitCache[_unit].auras.buffs
+    local buffList = _PLAYER and buffs.player or buffs.nonplayer
+    
+    local auraData = buffList[_aura]
+    if not _PLAYER and not auraData then
+        auraData = buffs.player[_aura]
+    end
+
+    if auraData then
+        -- FACT: expirationTime is 0 for buffs that don't expire (until used or die)
+        local isInfinite = (auraData.expirationTime == 0)
+        local remaining = isInfinite and 99999 or (auraData.expirationTime - GetTime())
+
+        if remaining >= _expired and auraData.count >= _counts then
+            return true
+        end
+    end
+    return false
 end
 jungle.unitCacheBuff = unitCacheBuff
 
-local function unitDebuff(_friend, _aura, _expired, _counts)
-	local _expired = _expired or 0
-	local _counts = _counts or 0
-	
-	-- Check all debuff categories
-	local categories = {'magic', 'curse', 'poison', 'disease', 'slow', 'root', 'freedom', 'unitIgnore'}
-	for _, cat in ipairs(categories) do
-		if unitCache[_friend].auras.debuffs[cat] and unitCache[_friend].auras.debuffs[cat][_aura] then
-			local d = unitCache[_friend].auras.debuffs[cat][_aura]
-			if (d.expirationTime - GetTime()) >= _expired and d.count >= _counts then
-				return true
-			end
-		end
-	end
-	return false
+local function unitCacheDebuff(_friend, _aura, _expired, _counts)
+    -- 1. SAFETY GUARD: Check if unit exists in our cache
+    -- Prevents "attempt to index field '?' (a nil value)"
+    if not _friend or not unitCache[_friend] or not unitCache[_friend].auras then 
+        return false 
+    end
+
+    local _expired = _expired or 0
+    local _counts = _counts or 0
+    
+    -- FACT: Check all debuff categories safely
+    local categories = {'magic', 'curse', 'poison', 'disease', 'slow', 'root', 'freedom', 'unitIgnore'}
+    
+    for _, cat in ipairs(categories) do
+        local catTable = unitCache[_friend].auras.debuffs[cat]
+        
+        if catTable and catTable[_aura] then
+            local d = catTable[_aura]
+            
+            -- 2. INFINITE CHECK: expirationTime is 0 for permanent debuffs
+            local isInfinite = (d.expirationTime == 0)
+            local remaining = isInfinite and 99999 or (d.expirationTime - GetTime())
+
+            if remaining >= _expired and d.count >= _counts then
+                return true
+            end
+        end
+    end
+    return false
 end
-jungle.unitDebuff = unitDebuff
+jungle.unitCacheDebuff = unitCacheDebuff
 
 local function countEntries(table)
   local count = 0

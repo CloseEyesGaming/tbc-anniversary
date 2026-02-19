@@ -31,6 +31,7 @@ DRreturns.lua
 Debug.lua
 CastomSpellCooldown.lua
 ShadowCrashHelper.lua
+Energy.lua
 
 # --- ROUTINES ---
 Routines/DeathKnight.lua

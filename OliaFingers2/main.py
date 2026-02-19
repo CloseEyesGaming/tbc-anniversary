@@ -167,4 +167,4 @@ if __name__ == "__main__":
             # Process Fishing
             fish.poll()
 
-        time.sleep(0.01)
+        time.sleep(0.05)

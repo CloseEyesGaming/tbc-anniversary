@@ -1,32 +1,27 @@
 local Jungle, jungle = ...
 
 local function isCasting(_target, timeToEnd, spell)
---[[
-	Is unit casting
-]]
-	local casting = false
-	local spellName, _, _, _, endTime, _, _, notInterruptible = UnitCastingInfo(_target)
-	timeToEnd = timeToEnd or 999
-	if spell == nil then
-		if spellName
-		and notInterruptible == false then 
-		local finish = endTime/1000 - GetTime()
-			if timeToEnd >= finish then
-				casting = true
-			end
-		end
-	end	
-	
-	if spell == spellName then
-		if spellName 
-		and notInterruptible == false then 
-			local finish = endTime/1000 - GetTime()
-			if timeToEnd >= finish then
-				casting = true
-			end		
-		end
-	end
-	return casting 
+    --[[
+        Checks if a unit is currently casting an interruptible spell.
+        @param _target (string): The unit ID (e.g., 'player', 'target').
+        @param timeToEnd (number|nil): Max remaining time (seconds) to consider valid.
+        @param spell (string|nil): Specific spell name to match.
+        @return (boolean): True if criteria are met and spell is interruptible.
+    ]]
+    local name, _, _, _, endTime, _, _, notInterruptible = UnitCastingInfo(_target)
+
+    if not name then return false end
+
+    timeToEnd = timeToEnd or 999
+    local isInterruptible = not notInterruptible 
+    
+    if spell and spell ~= name then
+        return false
+    end
+
+    local finish = (endTime / 1000) - GetTime()
+    
+    return isInterruptible and finish <= timeToEnd
 end
 jungle.isCasting = isCasting
 
@@ -68,9 +63,9 @@ local function targetedByCount(_target, _enemyType)
 				or classIndex==3
 				or classIndex==4
 				or classIndex==6
-				or (classIndex==2 and UnitPowerMax(_target , 0)<12000) -- retri
-				or (classIndex==7 and UnitPowerMax(_target , 0)<12000) -- ench
-				or (classIndex==11 and UnitPowerMax(_target , 0)<12000) -- feral
+				or (classIndex==2 and UnitPowerMax(_target , 0)<6000) -- retri
+				or (classIndex==7 and UnitPowerMax(_target , 0)<6000) -- ench
+				or (classIndex==11 and UnitPowerMax(_target , 0)<6000) -- feral
 			  )
 			  then
 				 if inRange > 1 then return true end
@@ -85,9 +80,9 @@ local function targetedByCount(_target, _enemyType)
 				or classIndex==3
 				or classIndex==4
 				or classIndex==6
-				or (classIndex==2 and UnitPowerMax(_target , 0)<12000) -- retri
-				or (classIndex==7 and UnitPowerMax(_target , 0)<12000) -- ench
-				or (classIndex==11 and UnitPowerMax(_target , 0)<12000) -- feral
+				or (classIndex==2 and UnitPowerMax(_target , 0)<6000) -- retri
+				or (classIndex==7 and UnitPowerMax(_target , 0)<6000) -- ench
+				or (classIndex==11 and UnitPowerMax(_target , 0)<6000) -- feral
 			  )
 				then
 					enemies = enemies + 1
@@ -105,7 +100,7 @@ local function targetedByCount(_target, _enemyType)
 				or classIndex==9
 				or (classIndex==5 and jungle.Buff('Shadowform', _target)) -- sp
 				or (classIndex==11 and jungle.Buff('Moonkin Form', _target)) -- Moonkin
-				or (classIndex==7 and UnitPowerMax(_target , 0)>12000) -- elemental/restor
+				or (classIndex==7 and UnitPowerMax(_target , 0)>7000) -- elemental/restor
 			  )
 			  then
 				 if inRange > 1 then return true end
@@ -120,7 +115,7 @@ local function targetedByCount(_target, _enemyType)
 				or classIndex==9
 				or (classIndex==5 and jungle.Buff('Shadowform', _target)) -- sp
 				or (classIndex==11 and jungle.Buff('Moonkin Form', _target)) -- Moonkin
-				or (classIndex==7 and UnitPowerMax(_target , 0)>12000) -- elemental/restor
+				or (classIndex==7 and UnitPowerMax(_target , 0)>7000) -- elemental/restor
 			  )
 				then
 					enemies = enemies + 1

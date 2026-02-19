@@ -171,35 +171,33 @@ def run_compare():
         return
 
     with open(PYTHON_LOG, 'r', encoding='utf-8') as f:
-        py_data = json.load(f)
+        skeleton = json.load(f)
 
-    # Searchable list of actual events WoW recorded
-    lua_data = parse_lua_debug_log(LUA_FILE)
-    lua_pool = list(lua_data)
+    lua_events = parse_lua_debug_log(LUA_FILE)
 
-    print(f"\n{'#':<4} | {'PYTHON (Sent)':<40} || {'LUA (Verified Match)':<55}")
-    print("-" * 105)
+    print(f"\n{'Action/Spell':<25} | {'Key':<12} | {'Win Recog':<10} | {'WoW Result'}")
+    print("-" * 75)
 
-    for i, p in enumerate(py_data):
-        p_str = f"[{p['key']}] {p['name']}"
-        l_str = "!!! MISSING !!!"
+    for item in skeleton:
+        name = item['name'].strip().lower()
+        key = item['key'].strip().upper()
 
-        # 1. Classification: Is it a Gamepad?
-        # Standardize check for PAD1-6, PADDLE, TRIGGER, SHOULDER
-        is_gamepad = p['type'] == 'PAD' or 'PAD' in p['key'].upper()
+        # 1. Hardware/Windows Verification (Did Python successfully fire the driver?)
+        # Since we use execute_action(action) in the test, we pull its status from the log
+        win_status = "OK" if item.get('type') in ['KBD', 'PAD'] else "ERR"
 
-        if is_gamepad:
-            l_str = f"PASSED (Gamepad Signal Sent)"
-        else:
-            # 2. SMART MATCH: Find the entry by Name AND Key in the Lua log
-            # This makes the test immune to "Sequence Drift"
-            match = next((l for l in lua_pool if l['name'] == p['name'] and l['key'] == p['key']), None)
+        # 2. WoW Verification (Did the engine accept it?)
+        actual_press = next((l for l in lua_events if
+                             l['name'].strip().lower() == name and
+                             l['key'].strip().upper() == key), None)
 
-            if match:
-                l_str = f"MATCH FOUND ({match['timestamp']})"
-                lua_pool.remove(match)  # Ensure we don't match the same log twice
+        wow_status = "[ PASS ]" if actual_press else "[!! FAIL !!]"
 
-        print(f"{i + 1:<4} | {p_str:<40} || {l_str:<55}")
+        # Check for specific "Silent Drops" (Windows says OK, WoW says FAIL)
+        if win_status == "OK" and not actual_press:
+            wow_status = "[!! DROPPED !!]"
+
+        print(f"{item['name']:<25} | {item['key']:<12} | {win_status:<10} | {wow_status}")
 
 
 if __name__ == "__main__":

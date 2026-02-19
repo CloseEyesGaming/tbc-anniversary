@@ -5,6 +5,21 @@ local Hotkeys = jungle.Hotkeys
 -- 1. Initialize Debug State
 Hotkeys.DebugMode = false
 
+-- ----------------------------------------------------------------------------
+-- 0. MACRO OVERRIDES (Universal)
+-- ----------------------------------------------------------------------------
+-- Define custom macros here by ID. These take precedence over everything.
+Hotkeys.MacroOverrides = {
+    -- Druid Powershifting & Safety
+    ["Cat Form"]       = "/cast !Cat Form",
+    ["Dire Bear Form"] = "/cast !Dire Bear Form",
+    ["Travel Form"]    = "/cast !Travel Form",
+    ["Lifebloom"]      = "/stopcasting\n/cast [@focus] Lifebloom",
+    
+    -- Example: Stopcasting on specific spells if needed
+    -- ["Healing Touch"] = "/stopcasting\n/cast Healing Touch",
+}
+
 -- Shared function that runs AFTER a button is clicked
 local function Debug_PostClick(self)
     if Hotkeys.DebugMode then
@@ -36,7 +51,8 @@ Hotkeys.GlobalDefaults = {
     { id = "targettarget",macro = "/focus targettarget", icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
-    { id = "Fishing",   macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Fishing",     macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Lure", macro = "/use Aquadynamic Fish Attractor\n/use 16",		 icon = "Interface\\Icons\\Trade_Fishing" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -55,7 +71,6 @@ Hotkeys.ClassSpells = {
         { id = "Starfire", icon = "Interface\\Icons\\Spell_Arcane_StarFire" },
         { id = "Entangling Roots", icon = "Interface\\Icons\\Spell_Nature_StrangleVines" },
         { id = "Cyclone", icon = "Interface\\Icons\\Spell_Nature_EarthBind" },
-        { id = "Faerie Fire", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
         { id = "Hibernate", icon = "Interface\\Icons\\Spell_Nature_Sleep" },
         { id = "Innervate", icon = "Interface\\Icons\\Spell_Nature_Lightning" },
         { id = "Barkskin", icon = "Interface\\Icons\\Spell_Nature_StoneSkin" },
@@ -75,14 +90,12 @@ Hotkeys.ClassSpells = {
         { id = "Feral Charge", icon = "Interface\\Icons\\Ability_Hunter_Pet_Bear" },
         { id = "Claw", icon = "Interface\\Icons\\Ability_Druid_Rake" },
         { id = "Cat Form", icon = "Interface\\Icons\\Ability_Druid_CatForm" },
-        { id = "Bear Form", icon = "Interface\\Icons\\Ability_Racial_BearForm" },
         { id = "Dire Bear Form", icon = "Interface\\Icons\\Ability_Racial_BearForm" },
         { id = "Travel Form", icon = "Interface\\Icons\\Ability_Druid_TravelForm" },
         { id = "Moonkin Form", icon = "Interface\\Icons\\Spell_Nature_ForceOfNature" },
         { id = "Tree of Life", icon = "Interface\\Icons\\Ability_Druid_TreeofLife" },
         { id = "Mark of the Wild", icon = "Interface\\Icons\\Spell_Nature_Regeneration" },
         { id = "Thorns", icon = "Interface\\Icons\\Spell_Nature_Thorns" },
-        { id = "Gift of the Wild", icon = "Interface\\Icons\\Spell_Nature_Regeneration" },
         { id = "Omen of Clarity", icon = "Interface\\Icons\\Spell_Nature_CrystalBall" },
         { id = "Remove Curse", icon = "Interface\\Icons\\Spell_Holy_RemoveCurse" },
         { id = "Abolish Poison", icon = "Interface\\Icons\\Spell_Nature_NullifyPoison_02" },
@@ -90,6 +103,8 @@ Hotkeys.ClassSpells = {
 		{ id = "Faerie Fire (Feral)", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
 		{ id = "Faerie Fire", icon = "Interface\\Icons\\Spell_Nature_FaerieFire" },
 		{ id = "Ravage", icon = "Interface\\Icons\\Ability_Druid_Ravage" },
+		{ id = "Tiger's Fury", icon = "Interface\\Icons\\Ability_Mount_JungleTiger" },
+        { id = "Demoralizing Roar", icon = "Interface\\Icons\\Ability_Druid_DemoralizingRoar" },
     },
     ["PRIEST"] = {
         { id = "Flash Heal", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
@@ -304,8 +319,8 @@ Hotkeys.ClassSpells = {
 -- 3. KEY POOLS
 -- ----------------------------------------------------------------------------
 
--- 1. POOL ROTATION (CTRL + Keyboard Only - 44 Slots)
--- Removed CTRL+Gamepad as requested.
+-- 1. POOL ROTATION (CTRL + Keyboard Only - 45 Slots)
+-- Removed CTRL+Gamepad and non-functional tokens.
 Hotkeys.Pool_Rotation = {
     -- Numbers (5)
     "CTRL-0", "CTRL-6", "CTRL-7", "CTRL-8", "CTRL-9",
@@ -321,16 +336,17 @@ Hotkeys.Pool_Rotation = {
     "CTRL-INSERT", "CTRL-DELETE", "CTRL-HOME", "CTRL-END", "CTRL-PAGEUP", "CTRL-PAGEDOWN", 
     "CTRL-UP", "CTRL-DOWN", "CTRL-LEFT", "CTRL-RIGHT",
 
-    -- Symbols & Backspace (11)
-    "CTRL-[", "CTRL-]", "CTRL-;", "CTRL-'", 
-    "CTRL-,", "CTRL-.", "CTRL-BACKSPACE",
-	    -- Numbers (5)
+    -- Symbols & Backspace (7)
+    "CTRL-[", "CTRL-]", "CTRL-;", "CTRL-'", "CTRL-,", "CTRL-.", "CTRL-BACKSPACE",
+
+    -- Unmodified Numbers for overlap (5)
     "0", "6", "7", "8", "9",
+    "ALT-0", "ALT-6", "ALT-7", "ALT-8", "ALT-9"
 }
 
--- 2. POOL TARGETING (Unmodified Base Keys - 71 Slots)
+-- 2. POOL TARGETING (Unmodified Base Keys - 51 Slots)
+-- Pruned: PAD5, PAD6, PADPADDLE 1-4, and all Analog Sticks.
 Hotkeys.Pool_Targeting = {
-
     -- Letters (7)
     "I", "J", "K", "L", "O", "U", "Y",
 
@@ -341,21 +357,21 @@ Hotkeys.Pool_Targeting = {
     "INSERT", "DELETE", "HOME", "END", "PAGEUP", "PAGEDOWN", 
     "UP", "DOWN", "LEFT", "RIGHT",
 
-    -- Symbols & Backspace (11)
+    -- Symbols & Backspace (7)
     "[", "]", ";", "'", ",", ".", "BACKSPACE",
 
-    -- GamePad Buttons (27)
+    -- GamePad Buttons (11 Verified)
     "PADDUP", "PADDRIGHT", "PADDDOWN", "PADDLEFT",
-    "PAD1", "PAD2", "PAD3", "PAD4", "PAD5", "PAD6",
+    "PAD1", "PAD2", "PAD3", "PAD4",
     "PADLSTICK", "PADRSTICK",
-    "PADLSTICKUP", "PADLSTICKRIGHT", "PADLSTICKDOWN", "PADLSTICKLEFT",
-    "PADRSTICKUP", "PADRSTICKRIGHT", "PADRSTICKDOWN", "PADRSTICKLEFT",
-    "PADPADDLE1", "PADPADDLE2", "PADPADDLE3", "PADPADDLE4",
-    "PADFORWARD", "PADSYSTEM", "PADSOCIAL",
-		-- [NEW] Readable Aliases
-    "PADLSHOULDER", "PADRSHOULDER",
-    "PADLTRIGGER", "PADRTRIGGER",
-    "PADBACK"
+    "PADFORWARD",
+
+    -- Gamepad Aliases (5 Verified)
+    "PADLSHOULDER", "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER", "PADBACK",
+    
+    
+    "ALT-I", "ALT-J", "ALT-K", "ALT-L", "ALT-O", "ALT-U", "ALT-Y",
+    "ALT-[", "ALT-]", "ALT-;", "ALT-'", "ALT-,", "ALT-.", "ALT-BACKSPACE"
 }
 
 -- ----------------------------------------------------------------------------
@@ -385,6 +401,14 @@ function Hotkeys:CreateStaticBar()
     -- Universal Button Creator
     -- If 'forcedKey' is provided, it uses it. Otherwise, it pulls from the Pool.
     local function CreateBtn(id, macroText, iconPath, forcedKey)
+        -- ----------------------------------------------------
+        -- OVERRIDE CHECK: Intercept ID for Custom Macros
+        -- ----------------------------------------------------
+        if Hotkeys.MacroOverrides[id] then
+            macroText = Hotkeys.MacroOverrides[id]
+        end
+        -- ----------------------------------------------------
+
         local key = forcedKey
         
         -- If no forced key, grab next one from pool
@@ -444,14 +468,14 @@ function Hotkeys:CreateStaticBar()
         -- Logic
         btn:SetAttribute("type", "macro")
         btn:SetAttribute("macrotext", macroText)
-		
-		-- Store info for the debugger
-		btn.debugName = id 
-		btn.debugKey  = key 
-		
-		-- Attach listener (SKIP Threads)
+        
+        -- Store info for the debugger
+        btn.debugName = id 
+        btn.debugKey  = key 
+        
+        -- Attach listener (SKIP Threads)
         if not string.find(id, "Thread") then
-		    btn:SetScript("PostClick", Debug_PostClick)
+            btn:SetScript("PostClick", Debug_PostClick)
         end
         
         table.insert(self.StaticButtons, { frame = btn, key = key, id = id })
@@ -466,8 +490,8 @@ function Hotkeys:CreateStaticBar()
         local t_icon = (i % 2 == 1) and "Interface\\Icons\\Spell_ChargePositive" or "Interface\\Icons\\Spell_ChargeNegative"
         CreateBtn(t_id, t_macro, t_icon, t_key)
     end
-	-- Mostly for fihsing loop mode
-	CreateBtn("Thread 7", "/run run_thread7()", "Interface\\Icons\\Spell_ChargePositive", "F4")
+    -- Mostly for fihsing loop mode
+    CreateBtn("Thread 7", "/run run_thread7()", "Interface\\Icons\\Spell_ChargePositive", "F4")
 
     -- 1. Global Defaults (Attack, Stopcast, etc)
     for _, data in ipairs(self.GlobalDefaults) do
@@ -477,7 +501,7 @@ function Hotkeys:CreateStaticBar()
     -- 2. Missing Core Units
     CreateBtn("focus", "/focus focus", "Interface\\Icons\\Ability_Hunter_SniperShot")
     CreateBtn("pet", "/focus pet", "Interface\\Icons\\Ability_Hunter_BeastCall")
-	
+    
     -- 3. Group Units
     for i = 1, 4 do CreateBtn("party"..i, "/focus party"..i) end
     for i = 5, 5 do CreateBtn("arena"..i, "/focus arena"..i) end -- Adjusted loop start to 5 for remaining Arena unit
@@ -544,11 +568,21 @@ function Hotkeys:CreateDynamicBar()
         btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
         btn:SetAttribute("type", "macro")
-        btn:SetAttribute("macrotext", "/cast [@focus, exists][] " .. spellData.id)
-		
-		btn.debugName = spellData.id 
-		btn.debugKey  = key 
-		btn:SetScript("PostClick", Debug_PostClick)
+        
+        -- ----------------------------------------------------
+        -- OVERRIDE CHECK: Dynamic Bar
+        -- ----------------------------------------------------
+        if Hotkeys.MacroOverrides[spellData.id] then
+             btn:SetAttribute("macrotext", Hotkeys.MacroOverrides[spellData.id])
+        else
+             -- Default Behavior
+             btn:SetAttribute("macrotext", "/cast [@focus, exists] " .. spellData.id)
+        end
+        -- ----------------------------------------------------
+        
+        btn.debugName = spellData.id 
+        btn.debugKey  = key 
+        btn:SetScript("PostClick", Debug_PostClick)
         
         table.insert(self.DynamicButtons, { frame = btn, key = key, spell = spellData.id })
         keyIndex = keyIndex + 1
@@ -579,11 +613,11 @@ end
 
 function Hotkeys:ToggleDebug()
     self.DebugMode = not self.DebugMode
-	
-	if jungle.Debug then
+    
+    if jungle.Debug then
         jungle.Debug:Toggle(self.DebugMode)
     end
-	
+    
     local status = self.DebugMode and "|cFF00FF00ON|r" or "|cFFFF0000OFF|r"
     print("|cFF00FFFF[Hotkeys]|r Debug Mode: " .. status)
 
