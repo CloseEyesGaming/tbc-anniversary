@@ -12,10 +12,9 @@ function Rotation:condition(rotations, pix, _target)
         local tbl = rotations[i](_target)
         for j = 1, #tbl do
             if tbl[j] and tbl[j][3] then 
-                -- We save the routine used to find this spell
                 jungle.CurrentCast.routineFunc = rotations[i]
-                -- Return {SpellName, Target, IndexPriority}
-                return {tbl[j][2], _target, j}
+                -- [NEW] We now return the 4th parameter (the Marker) if it exists
+                return {tbl[j][2], _target, j, tbl[j][4]} 
             end
         end
     end
@@ -27,7 +26,6 @@ function Rotation:rotate(rotations, pix)
     
     for _, rotation in ipairs(rotations) do
         for unit, unitData in pairs(jungle.unitCache) do
-            -- Ensure unit is valid, friendly, and available
             if jungle.isUnitAvailable(unit) and UnitIsFriend('player', unit) then
                 
                 local res = self:condition({rotation}, pix, unit)
@@ -36,26 +34,35 @@ function Rotation:rotate(rotations, pix)
                     local isBetter = false
                     
                     if not bestResult then
-                        -- No previous candidate, take this one
                         isBetter = true
                     elseif res[3] < bestResult[3] then
-                        -- STRICTLY Better Priority (Lower Index is better)
-                        -- Example: Priority 1 (NS) beats Priority 8 (Rejuv)
-                        isBetter = true
+                        isBetter = true -- STRICTLY Better Priority (Index rules all)
                     elseif res[3] == bestResult[3] then
-                        -- TIE-BREAKER: SAME Priority
-                        -- Compare Health: The more injured target wins
-                        local currentHP = unitData.currLife or 1
-                        local bestHP = jungle.unitCache[bestUnit].currLife or 1
                         
-                        if currentHP < bestHP then
+                        -- ===================================================
+                        -- THE NEW 2D TIE-BREAKER (BUCKETS -> HOT SCORE)
+                        -- ===================================================
+                        local currentBucket = unitData.hpBucket or 0
+                        local bestBucket = jungle.unitCache[bestUnit].hpBucket or 0
+                        
+                        if currentBucket > bestBucket then
+                            -- 1. They are missing significantly more HP (Next 500-tier)
                             isBetter = true
+                        elseif currentBucket == bestBucket then
+                            -- 2. They are missing similar HP -> Who has less HoTs?
+                            local currentScore = unitData.hotScore or 0
+                            local bestScore = jungle.unitCache[bestUnit].hotScore or 0
+                            
+                            if currentScore < bestScore then
+                                isBetter = true
+                            end
                         end
+                        -- ===================================================
+
                     end
 
                     if isBetter then
                         bestResult, bestUnit = res, unit
-                        -- Tag the routine used for this decision
                         jungle.CurrentCast.routineFunc = rotation 
                     end
                 end
@@ -64,7 +71,6 @@ function Rotation:rotate(rotations, pix)
     end
 
     if bestResult and bestUnit then
-        -- LOCK THE SESSION for the Stopcasting monitor
         jungle.CurrentCast.targetGUID = UnitGUID(bestUnit)
         jungle.CurrentCast.spellName = bestResult[1]
         jungle.CurrentCast.priority = bestResult[3]

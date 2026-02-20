@@ -9,7 +9,7 @@ local Jungle, jungle = ...
 -- Purpose: Diagnostic check for non-targetable Soft Interact objects (Fishing Bobber)
 -- We need a persistent table to store health history
 function tst0()
-print(jungle.isTargetInLos("Mouseover"))
+print(UnitGetIncomingHeals("player"))
 end
 
 function tst()

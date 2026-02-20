@@ -14,8 +14,7 @@ Hotkeys.MacroOverrides = {
     ["Cat Form"]       = "/cast !Cat Form",
     ["Dire Bear Form"] = "/cast !Dire Bear Form",
     ["Travel Form"]    = "/cast !Travel Form",
-    ["Lifebloom"]      = "/stopcasting\n/cast [@focus] Lifebloom",
-    
+   
     -- Example: Stopcasting on specific spells if needed
     -- ["Healing Touch"] = "/stopcasting\n/cast Healing Touch",
 }

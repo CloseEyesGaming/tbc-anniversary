@@ -71,6 +71,45 @@ local function CheckPowershift(formName, formID)
     return false
 end
 
+-- ============================================================================
+-- UNIVERSAL BLOOM WINDOW
+-- Scans the Engine's Execution Tracker. Prevents casting long spells 
+-- if a marked Lifebloom will expire during the cast time.
+-- ============================================================================
+function jungle.bloomWindow(spellName)
+    -- If no blooms are marked for protection, safe to cast
+    if not jungle.protectedBlooms then return true end
+
+    -- Dynamically get the cast time of any spell (e.g., Regrowth is usually 2.0s)
+    local _, _, _, castTimeMs = GetSpellInfo(spellName)
+    if not castTimeMs then return true end
+
+    local castTime = castTimeMs / 1000
+    local safeWindowEnd = GetTime() + castTime + 0.5 -- Cast Time + 0.5s Latency Buffer
+
+    for friend, unitData in pairs(jungle.unitCache) do
+        local guid = unitData.guid
+        
+        -- Is this unit currently marked for protection?
+        if guid and jungle.protectedBlooms[guid] then
+            local lb = unitData.auras.buffs.player['Lifebloom']
+            
+            if lb and lb.expirationTime > 0 then
+                -- DANGER: The marked bloom will expire while we are casting!
+                if lb.expirationTime < safeWindowEnd then
+                    return false 
+                end
+            else
+                -- The bloom fell off or bloomed naturally. 
+                -- We no longer need to protect it. Clean the registry.
+                jungle.protectedBlooms[guid] = nil
+            end
+        end
+    end
+    
+    return true -- Safe to hardcast!
+end
+
 --------------------------------------------------------------------------------
 -- THREAD 3: DISPEL (Refactored for ANY Poison/Curse)
 --------------------------------------------------------------------------------
@@ -1113,30 +1152,26 @@ local function universalHealSetV3(friend)
     -- 1. CONTEXT ANALYSIS
     local hp = data.currLife
     local inCombat = data.isInCombat
-    local isTank = data.isTank -- Role Check
-    local isTanking = jungle.isTanking(friend) -- Aggro Check
+    local isTank = data.isTank 
+    local isTanking = jungle.isTanking(friend) 
     local isPrio = jungle.isPriority(friend)
     local isMoving = (GetUnitSpeed('player') > 0)
-    local _, noManaLB = IsUsableSpell("Lifebloom")
     
     -- 2. AURA SCANNING
-    -- Player Hots
     local hasRejuv     = jungle.unitCacheBuff(friend, 'Rejuvenation', '_PLAYER')
     local hasRegrowth  = jungle.unitCacheBuff(friend, 'Regrowth', '_PLAYER')
     local hasLifebloom = jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER')
     local hasNS        = jungle.unitCacheBuff("player", "Nature's Swiftness", '_PLAYER')
+    local _, noManaLB  = IsUsableSpell("Lifebloom")
     
-    -- Any Hots (For Score & Sniping)
     local hasRegrowthAny = jungle.unitCacheBuff(friend, 'Regrowth')
     local hasRejuvAny    = jungle.unitCacheBuff(friend, 'Rejuvenation')
 
     -- 3. ROBUST LIFEBLOOM COUNTING
     local lbExpireLimit = 1.5
-    -- Latency Adjust: If we are casting a long spell, treat LB as expiring sooner
-    if jungle.isCasting('player', 2, 'Regrowth') then
+    if jungle.isCasting('player', 2,'Regrowth') then
         lbExpireLimit = 1.8
     end
-
     local lbCount = 0
     local lbExpiring = false
     
@@ -1144,144 +1179,97 @@ local function universalHealSetV3(friend)
         if jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 3) then lbCount = 3
         elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 2) then lbCount = 2
         elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 1) then lbCount = 1
-        else lbCount = 3 end -- Fail-Safe
+        else lbCount = 3 end
         
         lbExpiring = not jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', lbExpireLimit)
     end
 
-    -- 4. HOT SATURATION SCORE (The New Metric)
-    local hotScore = lbCount
-    if hasRejuvAny then hotScore = hotScore + 1 end
-    if hasRegrowthAny then hotScore = hotScore + 1 end
-
-    -- [[ TANK BIAS ]]
-    -- Artificially lower the score for Active Tanks to force priority updates
-    if isTank and isTanking then
-        if hp < 0.60 then
-            hotScore = hotScore - 2 -- Critical Tank -> Treated as "Naked"
-        elseif hp < 0.90 then
-            hotScore = hotScore - 1 -- Injured Tank -> Treated as having 1 less hot
-        end
-    end
-
-    -- 5. DECISION MATRIX
+    -- 4. PURE HEALING LOGIC
     return {
         -- ======================================
-        -- PRIORITY 1: EMERGENCY (Ignore Score - SAVE THEM)
+        -- PRIORITY 1: EMERGENCY
         -- ======================================
-        
-        -- [1] NS Save (Tank < 40%, Raid < 35%)
         [1] = { "NS Emergency", "Nature's Swiftness",
             (inCombat and not hasNS and not jungle.SpellOnCD("Nature's Swiftness") 
-            and ( (isTank and hp <= 0.40) or (hp <= 0.35) )) 
+            and ( (isTank and hp <= 0.40) or (hp <= 0.35) and (jungle.SpellOnCD("Swiftmend") or  not (hasRegrowthAny or hasRejuvAny)))) 
         },
         [2] = { "NS Cast", "Healing Touch",
             (inCombat and jungle.ReadyCastSpell('Healing Touch', friend) and hasNS 
             and ( (isTank and hp <= 0.40) or (hp <= 0.35) )) 
         },
-
-        -- [2] Swiftmend Panic (Tank < 50%, Raid < 40%)
         [3] = { "Swiftmend Panic", "Swiftmend",
             (inCombat and not jungle.SpellOnCD("Swiftmend") 
             and ( (isTank and hp <= 0.50) or (hp <= 0.40) )
             and (hasRegrowthAny or hasRejuvAny)) 
         },
-
-        -- [3] Tank Lifebloom Safety (Never lose stacks on assigned tank)
         [4] = { "LB Tank Safety", "Lifebloom",
-            (isTank and hasLifebloom and lbExpiring and not noManaLB) 
+            (isTank and hasLifebloom and lbExpiring and jungle.ReadyCastSpell('Lifebloom', friend)),
+			"PROTECT_BLOOM" -- [MARKER] Protect stack building
         },
 
         -- ======================================
         -- PRIORITY 2: TANK MAINTENANCE
         -- ======================================
-
-        -- [4] Tank Stack 3 (Force 3 Stacks on Active Tank)
-        -- Covers 0->1, 1->2, and 2->3
         [5] = { "LB Tank Stack", "Lifebloom",
-            (isTank and isTanking and lbCount < 3 and not noManaLB) 
+            (isTank and isTanking and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-
-        -- [5] Tank Regrowth (Standing + Missing)
         [6] = { "Regrowth Tank", "Regrowth",
             (isTank and isTanking and not isMoving and not hasRegrowth and hp < 0.90
-            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 2, 'Regrowth')) 
+            and jungle.bloomWindow("Regrowth") -- [SIMULATOR CHECK]
+            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 0.5,'Regrowth')) 
         },
-
-        -- [6] Tank Rejuv (Missing)
-        [7] = { "Rejuv Tank", "Rejuvenation",
+        [7] = { "LB Tank Stack", "Lifebloom",
+            (isTank and isTanking and lbCount < 3 and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        },
+        [8] = { "Rejuv Tank", "Rejuvenation",
             (isTank and isTanking and not hasRejuv and hp < 0.90
             and jungle.ReadyCastSpell('Rejuvenation', friend)) 
         },
 
         -- ======================================
-        -- PRIORITY 3: RAID EFFICIENCY (Score Sensitive)
+        -- PRIORITY 3: RAID EFFICIENCY 
         -- ======================================
-
-        -- [7] Swiftmend "Snipe"
-        [8] = { "Swiftmend Snipe", "Swiftmend",
+        [9] = { "Swiftmend Snipe", "Swiftmend",
             (inCombat and not jungle.SpellOnCD("Swiftmend") and not isTank and hp <= 0.80
             and ((hasRegrowthAny and not hasRegrowth) or (hasRejuvAny and not hasRejuv))) 
         },
-
-        -- [8] Raid Regrowth (Stand Still < 60%)
-        [9] = { "Regrowth Raid", "Regrowth",
+        [10] = { "Regrowth Raid", "Regrowth",
             (inCombat and not isMoving and not hasRegrowth and not isTank and hp <= 0.60
-            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 2, 'Regrowth')) 
+            and jungle.bloomWindow("Regrowth") -- [SIMULATOR CHECK]
+            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 0.5,'Regrowth')) 
         },
-
-        -- [9] LB Stack 3 (Strict Stacking)
-        [10] = { "LB Stack 3", "Lifebloom",
+        [11] = { "LB Stack 3", "Lifebloom",
             (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 2 and hp < 0.60
-            and not noManaLB) 
+            and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-        
-        -- [10] Rejuv Raid (Spot Heal < 80%)
-        -- FILTER: Uses the Modified hotScore.
-        -- Active Tank with 2 stacks (Score 2 -> 1) will now PASS this check (1 < 2).
-        [11] = { "Rejuv Raid", "Rejuvenation",
+        [12] = { "Rejuv Raid", "Rejuvenation",
             (inCombat and not hasRejuv and not isTank and hp <= 0.80
-            and (hp < 0.60 or hotScore < 2) 
             and jungle.ReadyCastSpell('Rejuvenation', friend)) 
         },
-
-        -- [11] LB Stack 2 (Strict Stacking)
-        [12] = { "LB Stack 2", "Lifebloom",
+        [13] = { "LB Stack 2", "Lifebloom",
             (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 1 and hp <= 0.80
-            and (hp < 0.60 or hotScore < 2)
-            and not noManaLB) 
+             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-
-        -- [12] Refresh Lifebloom 
-        [13] = { "LB Refresh 3", "Lifebloom",
-            (jungle.ReadyCastSpell('Lifebloom', friend) and lbExpiring and hp < 0.85
-            and not noManaLB) 
+        [14] = { "LB Refresh 3", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbExpiring and hp < 0.80
+             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-
-        -- [13] LB Start (The Filler)
-        -- FILTER: Active Tank (Score 1 -> 0) will PASS this check.
-        [14] = { "LB Start", "Lifebloom",
+        [15] = { "LB Start", "Lifebloom",
             (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 0 and hp < 0.90
-            and hotScore <= 0 -- Modified to <= 0 to catch negative scores
-            and not noManaLB) 
+            and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
 
         -- ======================================
         -- PRIORITY 4: OOC & FILLER
         -- ======================================
-
-        -- [14] OOC Pre-Hot Tank
-        [15] = { "LB OOC Tank", "Lifebloom",
+        [16] = { "LB OOC Tank", "Lifebloom",
             (not inCombat and isTank and (not hasLifebloom or lbExpiring)
             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-
-        -- [15] OOC Spot Heal Raid (< 90%)
-        [16] = { "LB OOC Raid", "Lifebloom",
-            (not inCombat and not isTank and hp < 0.90 and hotScore <= 0
+        [17] = { "LB OOC Raid", "Lifebloom",
+            (not inCombat and not isTank and hp < 0.90 and not hasLifebloom
             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
     }
 end
-
 jungle.universalHealSetV3 = universalHealSetV3

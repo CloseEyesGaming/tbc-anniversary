@@ -28,26 +28,19 @@ local function InitUnitTable()
         isMe = false,
         isInCombat = false,
         currLife = 0,
+        missingHP = 0,   -- [NEW] Absolute missing health
+        hpBucket = 0,    -- [NEW] Missing HP divided into 500s
+        hotScore = 0,    -- [NEW] Saturation score
         threatStatus = 0,
         isTank = false,
         auras = {
             debuffs = {
-                all = {},
-                magic = {},
-                curse = {},
-                poison = {},
-                disease = {},
-                slow = {},
-                root = {},
-                freedom = {},
-                unitIgnore = {},
+                all = {}, magic = {}, curse = {}, poison = {}, disease = {},
+                slow = {}, root = {}, freedom = {}, unitIgnore = {},
             },
             buffs = {
-                player = {},
-                nonplayer = {},
-                slowImmunity = {},
-                unitIgnoreIfYouCaster = {},
-                unitIgnoreIfYouPhys = {},
+                player = {}, nonplayer = {}, slowImmunity = {},
+                unitIgnoreIfYouCaster = {}, unitIgnoreIfYouPhys = {},
             },
         },
     }
@@ -129,10 +122,33 @@ end
 local function auraParser(unit)
 	debuffParse(unit)
 	buffParse(unit)
+    
+    -- =======================================================
+    -- [NEW] HOT SCORE & TANK BIAS LOGIC
+    -- =======================================================
+    local u = unitCache[unit]
+    local score = 0
+    local pBuffs = u.auras.buffs.player
+    local anyBuffs = u.auras.buffs.nonplayer
+
+    -- Calculate base score
+    if pBuffs['Lifebloom'] then score = score + pBuffs['Lifebloom'].count end
+    if pBuffs['Rejuvenation'] or anyBuffs['Rejuvenation'] then score = score + 1 end
+    if pBuffs['Regrowth'] or anyBuffs['Regrowth'] then score = score + 1 end
+
+    -- Tank Bias: Force tanks to look like they have fewer HoTs so they get priority
+    if u.isTank and jungle.isTanking(unit) then
+        if u.currLife < 0.60 then
+            score = score - 2 -- Critical Tank
+        elseif u.currLife < 0.90 then
+            score = score - 1 -- Injured Tank
+        end
+    end
+
+    u.hotScore = score
 end
 
 local function cacheUnitData(unit, _identificator)
-    -- OPTIMIZATION: Check if table exists. If so, recycle it.
     if not unitCache[unit] then
         unitCache[unit] = InitUnitTable()
     else
@@ -141,15 +157,27 @@ local function cacheUnitData(unit, _identificator)
 
     local u = unitCache[unit]
     
-    -- Update primitives directly
 	u.identificator = _identificator
+	u.guid = UnitGUID(unit) -- [NEW] Cache the GUID for the tracker
 	u.isMe = (UnitName(unit) == UnitName('player'))
 	u.isInCombat = UnitAffectingCombat(unit)
 	u.currLife = jungle.LifePercent(unit)
 	u.threatStatus = UnitThreatSituation(unit)
 	u.isTank = (UnitGroupRolesAssigned(unit) == 'TANK') or (GetPartyAssignment("MAINTANK", unit) == true)
     
-    -- Auras are handled by parser calling into u.auras
+    -- =======================================================
+    -- [NEW] MISSING HP BUCKET LOGIC (Incoming Heals Supported)
+    -- =======================================================
+    local maxHP = UnitHealthMax(unit) or 1
+    local currentHP = UnitHealth(unit) or 0
+    local incHeals = UnitGetIncomingHeals(unit) or 0 
+    
+    local missingHP = maxHP - (currentHP + incHeals)
+    if missingHP < 0 then missingHP = 0 end
+    
+    u.missingHP = missingHP
+    -- Groups players by 500 HP tiers (0-499=0, 500-999=1, etc.)
+    u.hpBucket = math.floor(missingHP / 500) 
 end
 jungle.cacheUnitData = cacheUnitData
 
