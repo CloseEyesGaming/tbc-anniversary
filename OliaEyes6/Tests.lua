@@ -9,7 +9,8 @@ local Jungle, jungle = ...
 -- Purpose: Diagnostic check for non-targetable Soft Interact objects (Fishing Bobber)
 -- We need a persistent table to store health history
 function tst0()
-print(UnitGetIncomingHeals("player"))
+print(jungle.SpellOnCD("Bash"), IsSpellInRange("Bash", "target"))
+print(jungle.SpellOnCD("Feral Charge"), "-",IsSpellInRange("Feral Charge", "target"))
 end
 
 function tst()

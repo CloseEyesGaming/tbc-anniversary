@@ -280,12 +280,17 @@ function jungle.dpsSet(_target)
                 }
             end
         end
+		
+		-- Standard Caster Rotation (Only if window expired or manual shift)
+        local isMoving = GetUnitSpeed('player') > 0
+        local inCombat = UnitAffectingCombat('player')
 
-        -- Standard Caster Rotation (Only if window expired or manual shift)
         return {
-            [1]= {'Wrath DPS', 'Wrath', (jungle.ReadyCastSpell('Wrath', _target) and GetUnitSpeed('player') == 0 and UnitAffectingCombat('player')), 1, 0},
-            [2]= {'MF DoT', 'Moonfire', (jungle.ReadyCastSpell('Moonfire', _target) and not jungle.Debuff('Moonfire', _target, '|PLAYER')), 1, 0},
-            [3]= {'Attack', 'Attack', (shouldAttack), 1, 0},
+            [1]= {'Starfire Opener', 'Starfire', (jungle.ReadyCastSpell('Starfire', _target) and not isMoving and not inCombat), 1, 0},
+            [2]= {'Wrath DPS', 'Wrath', (jungle.ReadyCastSpell('Wrath', _target) and not isMoving and inCombat), 1, 0},
+            [3]= {'MF DoT (Mobile)', 'Moonfire', (jungle.ReadyCastSpell('Moonfire', _target) and isMoving and not jungle.Debuff('Moonfire', _target, '|PLAYER')), 1, 0},
+            [4]= {'IS DoT (Mobile)', 'Insect Swarm', (jungle.ReadyCastSpell('Insect Swarm', _target) and isMoving and not jungle.Debuff('Insect Swarm', _target, '|PLAYER')), 1, 0},
+            [5]= {'Attack', 'Attack', (shouldAttack), 1, 0},
         }
     end
 end
@@ -350,13 +355,6 @@ function jungle.buffSet(friend)
         ), 1, 0},
     }
 end
-
-local Jungle, jungle = ...
-
--- ----------------------------------------------------------------------------
--- PvE ROTATION: Efficiency & Tank Maintenance
--- ----------------------------------------------------------------------------
-local Jungle, jungle = ...
 
 -- ----------------------------------------------------------------------------
 -- PvE ROTATION: Efficiency & Tank Maintenance
@@ -512,7 +510,6 @@ local function universalHealSet(friend)
     end
 end
 
-jungle.pveHealSet = pveHealSet
 jungle.pvpHealSet = pvpHealSet
 jungle.universalHealSet = universalHealSet
 
@@ -1145,7 +1142,7 @@ local Jungle, jungle = ...
 -- ----------------------------------------------------------------------------
 local Jungle, jungle = ...
 
-local function universalHealSetV3(friend)
+local function universalHealSetV5(friend)
     local data = jungle.unitCache[friend]
     if not data or UnitIsDeadOrGhost(friend) then return {} end
 
@@ -1153,25 +1150,28 @@ local function universalHealSetV3(friend)
     local hp = data.currLife
     local inCombat = data.isInCombat
     local isTank = data.isTank 
-    local isTanking = jungle.isTanking(friend) 
-    local isPrio = jungle.isPriority(friend)
     local isMoving = (GetUnitSpeed('player') > 0)
     
-    -- 2. AURA SCANNING
-    local hasRejuv     = jungle.unitCacheBuff(friend, 'Rejuvenation', '_PLAYER')
-    local hasRegrowth  = jungle.unitCacheBuff(friend, 'Regrowth', '_PLAYER')
-    local hasLifebloom = jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER')
-    local hasNS        = jungle.unitCacheBuff("player", "Nature's Swiftness", '_PLAYER')
-    local _, noManaLB  = IsUsableSpell("Lifebloom")
+    -- [GLADIATOR FIX]: Bridge the Threat Gap
+    -- Check 1: API confirms tanking
+    -- Check 2: Target-of-Target confirms boss is looking at the tank
+    local rawIsTanking = jungle.isTanking(friend)
+    local totIsTanking = UnitIsUnit(friend .. "targettarget", friend)
     
-    local hasRegrowthAny = jungle.unitCacheBuff(friend, 'Regrowth')
-    local hasRejuvAny    = jungle.unitCacheBuff(friend, 'Rejuvenation')
+    local isActiveTank = isTank and inCombat and (rawIsTanking or totIsTanking)
+    
+    -- 2. AURA SCANNING
+    local hasRejuv      = jungle.unitCacheBuff(friend, 'Rejuvenation', '_PLAYER')
+    local hasRegrowth   = jungle.unitCacheBuff(friend, 'Regrowth', '_PLAYER')
+    local hasLifebloom  = jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER')
+    local hasNS         = jungle.unitCacheBuff("player", "Nature's Swiftness", '_PLAYER')
+    
+    local hasRegAny = jungle.unitCacheBuff(friend, 'Regrowth')
+    local hasRejAny = jungle.unitCacheBuff(friend, 'Rejuvenation')
 
     -- 3. ROBUST LIFEBLOOM COUNTING
     local lbExpireLimit = 1.5
-    if jungle.isCasting('player', 2,'Regrowth') then
-        lbExpireLimit = 1.8
-    end
+    if jungle.isCasting('player', 2,'Regrowth') then lbExpireLimit = 1.8 end
     local lbCount = 0
     local lbExpiring = false
     
@@ -1180,7 +1180,6 @@ local function universalHealSetV3(friend)
         elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 2) then lbCount = 2
         elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 1) then lbCount = 1
         else lbCount = 3 end
-        
         lbExpiring = not jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', lbExpireLimit)
     end
 
@@ -1190,86 +1189,437 @@ local function universalHealSetV3(friend)
         -- PRIORITY 1: EMERGENCY
         -- ======================================
         [1] = { "NS Emergency", "Nature's Swiftness",
-            (inCombat and not hasNS and not jungle.SpellOnCD("Nature's Swiftness") 
-            and ( (isTank and hp <= 0.40) or (hp <= 0.35) and (jungle.SpellOnCD("Swiftmend") or  not (hasRegrowthAny or hasRejuvAny)))) 
+            (inCombat and not hasNS and not jungle.SpellOnCD("NS") 
+            and ((isActiveTank and hp <= 0.40) or (hp <= 0.35)) 
+            and (jungle.SpellOnCD("Swiftmend") or not (hasRegrowthAny or hasRejuvAny))) 
         },
         [2] = { "NS Cast", "Healing Touch",
             (inCombat and jungle.ReadyCastSpell('Healing Touch', friend) and hasNS 
-            and ( (isTank and hp <= 0.40) or (hp <= 0.35) )) 
+            and ((isActiveTank and hp <= 0.40) or (hp <= 0.35))) 
         },
         [3] = { "Swiftmend Panic", "Swiftmend",
             (inCombat and not jungle.SpellOnCD("Swiftmend") 
-            and ( (isTank and hp <= 0.50) or (hp <= 0.40) )
+            and ((isActiveTank and hp <= 0.50) or (hp <= 0.40))
             and (hasRegrowthAny or hasRejuvAny)) 
         },
         [4] = { "LB Tank Safety", "Lifebloom",
-            (isTank and hasLifebloom and lbExpiring and jungle.ReadyCastSpell('Lifebloom', friend)),
-			"PROTECT_BLOOM" -- [MARKER] Protect stack building
+            (isActiveTank and hasLifebloom and lbExpiring and jungle.ReadyCastSpell('Lifebloom', friend)),
+            "PROTECT_BLOOM" 
         },
 
         -- ======================================
-        -- PRIORITY 2: TANK MAINTENANCE
+        -- PRIORITY 2: URGENT RAID SPREAD
         -- ======================================
-        [5] = { "LB Tank Stack", "Lifebloom",
-            (isTank and isTanking and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        [5] = { "Urgent Rejuv", "Rejuvenation",
+            (inCombat and not isActiveTank and hp < 0.65 and not hasRejuv 
+            and jungle.ReadyCastSpell('Rejuvenation', friend)) 
         },
-        [6] = { "Regrowth Tank", "Regrowth",
-            (isTank and isTanking and not isMoving and not hasRegrowth and hp < 0.90
-            and jungle.bloomWindow("Regrowth") -- [SIMULATOR CHECK]
-            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 0.5,'Regrowth')) 
+        [6] = { "Urgent LB Start", "Lifebloom",
+            (inCombat and not isActiveTank and hp < 0.65 and lbCount == 0 
+            and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-        [7] = { "LB Tank Stack", "Lifebloom",
-            (isTank and isTanking and lbCount < 3 and jungle.ReadyCastSpell('Lifebloom', friend)) 
+
+        -- ======================================
+        -- PRIORITY 3: ACTIVE TANK MAINTENANCE (Hybrid Detection)
+        -- ======================================
+        [7] = { "LB Tank Start", "Lifebloom",
+            (isActiveTank and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)),
+            "PROTECT_BLOOM"
         },
-        [8] = { "Rejuv Tank", "Rejuvenation",
-            (isTank and isTanking and not hasRejuv and hp < 0.90
+        [8] = { "Regrowth Tank", "Regrowth",
+            (isActiveTank and not isMoving and jungle.bloomWindow("Regrowth") 
+            and ((not hasRegrowth and hp < 0.90) or hp < 0.60)
+            and jungle.ReadyCastSpell('Regrowth', friend) 
+            and not jungle.isCasting('player', 0.5,'Regrowth')) 
+        },
+        [9] = { "LB Tank Stack", "Lifebloom",
+            (isActiveTank and lbCount < 3 and jungle.ReadyCastSpell('Lifebloom', friend)),
+            "PROTECT_BLOOM"
+        },
+        [10] = { "Rejuv Tank", "Rejuvenation",
+            (isActiveTank and not hasRejuv and hp < 0.90
             and jungle.ReadyCastSpell('Rejuvenation', friend)) 
         },
 
         -- ======================================
-        -- PRIORITY 3: RAID EFFICIENCY 
+        -- PRIORITY 4: RAID & PASSIVE TANK
         -- ======================================
-        [9] = { "Swiftmend Snipe", "Swiftmend",
-            (inCombat and not jungle.SpellOnCD("Swiftmend") and not isTank and hp <= 0.80
+        [11] = { "Swiftmend Snipe", "Swiftmend",
+            (inCombat and not jungle.SpellOnCD("Swiftmend") and not isActiveTank and hp <= 0.80
             and ((hasRegrowthAny and not hasRegrowth) or (hasRejuvAny and not hasRejuv))) 
         },
-        [10] = { "Regrowth Raid", "Regrowth",
-            (inCombat and not isMoving and not hasRegrowth and not isTank and hp <= 0.60
-            and jungle.bloomWindow("Regrowth") -- [SIMULATOR CHECK]
-            and jungle.ReadyCastSpell('Regrowth', friend) and not jungle.isCasting('player', 0.5,'Regrowth')) 
+        [12] = { "Regrowth Raid", "Regrowth",
+            (inCombat and not isMoving and not hasRegrowth and not isActiveTank and hp <= 0.80
+            and jungle.bloomWindow("Regrowth")
+            and jungle.ReadyCastSpell('Regrowth', friend) 
+            and not jungle.isCasting('player', 0.5,'Regrowth')) 
         },
-        [11] = { "LB Stack 3", "Lifebloom",
-            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 2 and hp < 0.60
-            and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        [13] = { "LB Stack 3", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 2 and hp < 0.60) 
         },
-        [12] = { "Rejuv Raid", "Rejuvenation",
-            (inCombat and not hasRejuv and not isTank and hp <= 0.80
+        [14] = { "Rejuv Raid", "Rejuvenation",
+            (inCombat and not hasRejuv and not isActiveTank and hp <= 0.80
             and jungle.ReadyCastSpell('Rejuvenation', friend)) 
         },
-        [13] = { "LB Stack 2", "Lifebloom",
-            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 1 and hp <= 0.80
-             and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        [15] = { "LB Stack 2", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 1 and hp <= 0.80) 
         },
-        [14] = { "LB Refresh 3", "Lifebloom",
-            (jungle.ReadyCastSpell('Lifebloom', friend) and lbExpiring and hp < 0.80
-             and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        [16] = { "LB Refresh 3", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbExpiring and hp < 0.80) 
         },
-        [15] = { "LB Start", "Lifebloom",
-            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 0 and hp < 0.90
-            and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        [17] = { "LB Start Filler", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 0 and hp < 0.90) 
         },
 
         -- ======================================
-        -- PRIORITY 4: OOC & FILLER
+        -- PRIORITY 5: OOC (Unchanged)
         -- ======================================
-        [16] = { "LB OOC Tank", "Lifebloom",
+        [18] = { "LB OOC Tank", "Lifebloom",
             (not inCombat and isTank and (not hasLifebloom or lbExpiring)
             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
-        [17] = { "LB OOC Raid", "Lifebloom",
+        [19] = { "LB OOC Raid", "Lifebloom",
             (not inCombat and not isTank and hp < 0.90 and not hasLifebloom
             and jungle.ReadyCastSpell('Lifebloom', friend)) 
         },
     }
 end
-jungle.universalHealSetV3 = universalHealSetV3
+jungle.universalHealSetV5 = universalHealSetV5
+
+local function universalHealSetV6(friend)
+    local data = jungle.unitCache[friend]
+    if not data or UnitIsDeadOrGhost(friend) then return {} end
+
+    -- 1. CONTEXT ANALYSIS
+    local hp = data.currLife
+    local inCombat = data.isInCombat
+    local isTank = data.isTank 
+    local isMoving = (GetUnitSpeed('player') > 0)
+    
+    local rawIsTanking = jungle.isTanking(friend)
+    local totIsTanking = UnitIsUnit(friend .. "targettarget", friend)
+    local isActiveTank = isTank and inCombat and (rawIsTanking or totIsTanking)
+    
+    local tLevel = UnitLevel(friend.."target") or 1
+    local tClass = UnitClassification(friend.."target") or "normal"
+    local isBoss = (tLevel == -1 or tClass == "worldboss" or tClass == "boss")
+    
+    local isTankingBoss  = isActiveTank and isBoss
+    local isTankingTrash = isActiveTank and not isBoss
+    
+    -- 2. AURA SCANNING
+    local hasRejuv      = jungle.unitCacheBuff(friend, 'Rejuvenation', '_PLAYER')
+    local hasRegrowth   = jungle.unitCacheBuff(friend, 'Regrowth', '_PLAYER')
+    local hasLifebloom  = jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER')
+    local hasNS         = jungle.unitCacheBuff("player", "Nature's Swiftness", '_PLAYER')
+    
+    local hasRegAny = jungle.unitCacheBuff(friend, 'Regrowth')
+    local hasRejAny = jungle.unitCacheBuff(friend, 'Rejuvenation')
+
+    -- 3. ROBUST LIFEBLOOM COUNTING
+    local lbExpireLimit = 1.5
+    if jungle.isCasting('player', 2,'Regrowth') then lbExpireLimit = 1.8 end
+    local lbCount = 0
+    local lbExpiring = false
+    
+    if hasLifebloom then
+        if jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 3) then lbCount = 3
+        elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 2) then lbCount = 2
+        elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 1) then lbCount = 1
+        else lbCount = 3 end
+        lbExpiring = not jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', lbExpireLimit)
+    end
+
+    -- [REGROWTH TANK LOGIC]
+    local safeBloom = jungle.bloomWindow("Regrowth")
+    local wantRegTank = false
+    if isActiveTank and not isMoving and not jungle.isCasting('player', 0.5, 'Regrowth') and jungle.ReadyCastSpell('Regrowth', friend) then
+        if not hasRegrowth and hp >= 0.90 and safeBloom then
+            wantRegTank = true 
+        elseif not hasRegrowth and hp < 0.90 then
+            wantRegTank = true 
+        elseif hp < 0.80 and safeBloom then
+            wantRegTank = true 
+        end
+    end
+
+    -- 4. UNIVERSAL STOPCAST RULES (Closures)
+    -- We abort if the target's predicted life (Health + Incoming) is >= 95%
+    local stopIfFull = function(t) 
+        return jungle.LifePercent(t) >= 0.95 
+    end
+
+    -- 5. PURE HEALING LOGIC
+    return {
+        -- ======================================
+        -- PRIORITY 1: EMERGENCY
+        -- ======================================
+        [1] = { "NS Emergency", "Nature's Swiftness",
+            (inCombat and not hasNS and not jungle.SpellOnCD("Nature's Swiftness") 
+            and ((isActiveTank and hp <= 0.40) or (hp <= 0.35)) 
+            and (jungle.SpellOnCD("Swiftmend") or not (hasRegAny or hasRejAny))) 
+        },
+        [2] = { "NS Cast", "Healing Touch",
+            (inCombat and jungle.ReadyCastSpell('Healing Touch', friend) and hasNS 
+            and ((isActiveTank and hp <= 0.40) or (hp <= 0.35)))
+        },
+        [3] = { "Swiftmend Panic", "Swiftmend",
+            (inCombat and not jungle.SpellOnCD("Swiftmend") 
+            and ((isActiveTank and hp <= 0.50) or (hp <= 0.40))
+            and (hasRegAny or hasRejAny)) 
+        },
+        [4] = { "LB Tank Safety", "Lifebloom",
+            (isActiveTank and hasLifebloom and lbExpiring and jungle.ReadyCastSpell('Lifebloom', friend)),
+            "PROTECT_BLOOM" -- Legacy marker handled in Rotation.lua
+        },
+
+        -- ======================================
+        -- PRIORITY 2: BOSS TANK MAINTENANCE 
+        -- ======================================
+        [5] = { "LB Boss Tank Start", "Lifebloom",
+            (isTankingBoss and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)), "PROTECT_BLOOM"
+        },
+        [6] = { "Regrowth Boss Tank", "Regrowth", (isTankingBoss and wantRegTank), nil }, -- No Stopcast: Keep HoT active
+        [7] = { "LB Boss Tank Stack", "Lifebloom",
+            (isTankingBoss and lbCount < 3 and jungle.ReadyCastSpell('Lifebloom', friend)), "PROTECT_BLOOM"
+        },
+        [8] = { "Rejuv Boss Tank", "Rejuvenation",
+            (isTankingBoss and not hasRejuv and hp < 0.90 and jungle.ReadyCastSpell('Rejuvenation', friend)) 
+        },
+
+        -- ======================================
+        -- PRIORITY 3: URGENT RAID SPREAD
+        -- ======================================
+        [9] = { "Urgent Rejuv", "Rejuvenation",
+            (inCombat and not isActiveTank and hp < 0.65 and not hasRejuv and jungle.ReadyCastSpell('Rejuvenation', friend)) 
+        },
+        [10] = { "Urgent LB Start", "Lifebloom",
+            (inCombat and not isActiveTank and hp < 0.65 and lbCount == 0 and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        },
+
+        -- ======================================
+        -- PRIORITY 4: TRASH TANK MAINTENANCE 
+        -- ======================================
+        [11] = { "LB Trash Tank Start", "Lifebloom",
+            (isTankingTrash and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)), "PROTECT_BLOOM"
+        },
+        [12] = { "Regrowth Trash Tank", "Regrowth", (isTankingTrash and wantRegTank), nil }, -- No Stopcast: Keep HoT active
+        [13] = { "LB Trash Tank Stack", "Lifebloom",
+            (isTankingTrash and lbCount < 3 and jungle.ReadyCastSpell('Lifebloom', friend)), "PROTECT_BLOOM"
+        },
+        [14] = { "Rejuv Trash Tank", "Rejuvenation",
+            (isTankingTrash and not hasRejuv and hp < 0.90 and jungle.ReadyCastSpell('Rejuvenation', friend)) 
+        },
+
+        -- ======================================
+        -- PRIORITY 5: RAID & PASSIVE TANK
+        -- ======================================
+        [15] = { "Swiftmend Snipe", "Swiftmend",
+            (inCombat and not jungle.SpellOnCD("Swiftmend") and not isActiveTank and hp <= 0.80
+            and ((hasRegAny and not hasRegrowth) or (hasRejAny and not hasRejuv))) 
+        },
+		-- [NEW] 16: Tank Regrowth Backup (No Stopcast)
+        [16] = { "Regrowth Tank Backup", "Regrowth",
+            (inCombat and not isMoving and not hasRegrowth and isTank and hp <= 0.80
+            and jungle.bloomWindow("Regrowth") and jungle.ReadyCastSpell('Regrowth', friend) 
+            and not jungle.isCasting('player', 0.5,'Regrowth')),
+            nil -- Tanks NEVER stopcast, we want the HoT to land
+        },
+
+        -- [NEW] 17: Raid Regrowth (With Stopcast)
+        [17] = { "Regrowth Raid", "Regrowth",
+            (inCombat and not isMoving and not hasRegrowth and not isTank and hp <= 0.80
+            and jungle.bloomWindow("Regrowth") and jungle.ReadyCastSpell('Regrowth', friend) 
+            and not jungle.isCasting('player', 0.5,'Regrowth')),
+            stopIfFull -- Universal Overheal Prevention for Raid
+        },
+        [18] = { "LB Stack 3", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 2 and hp < 0.60 and not isActiveTank) 
+        },
+        [19] = { "Rejuv Raid", "Rejuvenation",
+            (inCombat and not hasRejuv and not isActiveTank and hp <= 0.80 and jungle.ReadyCastSpell('Rejuvenation', friend)) 
+        },
+        [20] = { "LB Stack 2", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 1 and hp <= 0.80 and not isActiveTank) 
+        },
+        [21] = { "LB Refresh 3", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbExpiring and hp < 0.80 and not isActiveTank) 
+        },
+        [22] = { "LB Start Filler", "Lifebloom",
+            (jungle.ReadyCastSpell('Lifebloom', friend) and lbCount == 0 and hp < 0.90 and not isActiveTank) 
+        },
+
+        -- ======================================
+        -- PRIORITY 6: OOC STACKING
+        -- ======================================
+        [23] = { "LB OOC Tank (Stack 1)", "Lifebloom", (not inCombat and isTank and lbCount == 0 and jungle.ReadyCastSpell('Lifebloom', friend)) },
+        [24] = { "LB OOC Tank (Stack 2)", "Lifebloom", (not inCombat and isTank and lbCount == 1 and jungle.ReadyCastSpell('Lifebloom', friend)) },
+        [25] = { "LB OOC Tank (Stack 3)", "Lifebloom", (not inCombat and isTank and lbCount == 2 and jungle.ReadyCastSpell('Lifebloom', friend)) },
+        [26] = { "LB OOC Tank (Refresh)", "Lifebloom", (not inCombat and isTank and lbCount == 3 and lbExpiring and jungle.ReadyCastSpell('Lifebloom', friend)) },
+        
+        [27] = { "LB OOC Raid", "Lifebloom",
+            (not inCombat and not isTank and hp < 0.90 and not hasLifebloom and jungle.ReadyCastSpell('Lifebloom', friend)) 
+        },
+    }
+end
+
+jungle.universalHealSetV6 = universalHealSetV6	
+
+-- Initialize the throttle table
+jungle.rejuvTimer = jungle.rejuvTimer or {}
+
+local function universalPvPMatrix(friend)
+    local data = jungle.unitCache[friend]
+    if not data or UnitIsDeadOrGhost(friend) then return {} end
+
+    -- 1. CONTEXT & THREAT DETECTION
+    local hp           = data.currLife
+    local inCombat     = data.isInCombat
+    local now          = GetTime()
+    local isMoving     = (GetUnitSpeed('player') > 0)
+    local pressure     = jungle.targetedByCount(friend)
+    local isFocused    = (pressure > 0)
+    local isRegrowthSafe = not isMoving and not jungle.isCasting('player', 0.5)
+    
+    -- PRIMARY TARGET DETECTION (Gladiator Logic)
+    -- Is this person the most likely to die right now?
+    local isPrimaryTarget = (hp < 0.50) or (pressure >= 2) or (isFocused and hp < 0.75)
+
+    -- 2. AURA & API CACHING
+    local hasRejuv      = jungle.unitCacheBuff(friend, 'Rejuvenation', '_PLAYER')
+    local hasRegrowth   = jungle.unitCacheBuff(friend, 'Regrowth', '_PLAYER')
+    local hasLifebloom  = jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER')
+    local hasNS         = jungle.unitCacheBuff("player", "Nature's Swiftness", '_PLAYER')
+    local smOnCD        = jungle.SpellOnCD("Swiftmend")
+    
+    local hasRegAny = jungle.unitCacheBuff(friend, 'Regrowth')
+    local hasRejAny = jungle.unitCacheBuff(friend, 'Rejuvenation')
+
+    -- 3. LIFEBLOOM DURATION & STACKS
+    local lbExpiring = hasLifebloom and not jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', 1.5)
+    local lbCount = 0
+    if hasLifebloom then
+        if jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 3) then lbCount = 3
+        elseif jungle.unitCacheBuff(friend, 'Lifebloom', '_PLAYER', nil, 2) then lbCount = 2
+        else lbCount = 1 end
+    end
+
+    -- 4. DYNAMIC TRIGGERS
+    local isCriticalLB = lbExpiring and (hp < 0.65 or pressure >= 2)
+    local lastRejuv = jungle.rejuvTimer[friend] or 0
+    local needsBuffer = (isFocused or hp < 0.60) and (now - lastRejuv > 3.0)
+    local needsDirectHPS = isRegrowthSafe and (pressure >= 2 or hp < 0.75)
+
+    -- 5. THE "PRIMARY TARGET" PRIORITY STACK
+    return {
+        -- PRIORITY 1: EMERGENCY
+        [1] = { "NS Panic",    "Nature's Swiftness", (inCombat and not hasNS and not jungle.SpellOnCD("Nature's Swiftness") and hp <= 0.30) },
+        [2] = { "NS HT",       "Healing Touch",      (hasNS and hp <= 0.35) },
+        [3] = { "Swiftmend",   "Swiftmend",          (hp <= 0.55 and (hasRegAny or hasRejAny) and not smOnCD) },
+
+        -- PRIORITY 2: CRITICAL HOT PROTECTION
+        -- If a bloom is about to expire on a dying target, save it first!
+        [4] = { "LB Critical Refresh", "Lifebloom", (isCriticalLB) },
+
+        -- PRIORITY 3: DIRECT HPS SPAM (Stationary)
+        -- MOVED UP: If we are standing still and they need direct healing, Regrowth beats stacking LB.
+        [5] = { "Regrowth (SPAM)", "Regrowth", (needsDirectHPS and jungle.ReadyCastSpell('Regrowth', friend)) },
+
+        -- PRIORITY 4: PRIMARY TARGET STACKING (Force 3-Stacks)
+        -- If moving (Regrowth unsafe) OR target is stable enough, we build our 3 stacks.
+        [6] = { "LB Force Stack",      "Lifebloom", (isPrimaryTarget and lbCount < 3 and not lbExpiring) },
+
+        -- PRIORITY 5: ANTI-DISPEL BUFFER
+        -- NOTE: Ensure your Rejuv Buffer logic works with the new Stopcast 4th param architecture.
+        [7] = { "Rejuv Buffer", "Rejuvenation", (not hasRejuv and needsBuffer), 
+            function() jungle.rejuvTimer[friend] = now end 
+        },
+
+        -- PRIORITY 6: MAINTENANCE
+        [8] = { "LB Refresh (Normal)", "Lifebloom",    (lbExpiring and not isCriticalLB) },
+        [9] = { "Regrowth (HOT)",      "Regrowth",      (isRegrowthSafe and not hasRegrowth and (hp < 0.90 or isFocused)) },
+        [10] = { "Rejuv (General)",     "Rejuvenation",  (not hasRejuv and (hp < 0.92 or pressure > 0)) },
+        
+        -- Secondary Stacking for non-primary targets
+        [11] = { "LB Stack 1 & 2", "Lifebloom", (not isPrimaryTarget and lbCount < 2 and (hp < 0.98 or inCombat)) },
+        [12] = { "LB Stack 3",     "Lifebloom", (not isPrimaryTarget and lbCount == 2 and (isFocused or hp < 0.80)) },
+
+        -- PRIORITY 7: MOBILE
+        [13] = { "Swiftmend Mobile", "Swiftmend", (isMoving and hp < 0.70 and not smOnCD and (hasRegAny or hasRejAny)) }
+    }
+end
+
+jungle.universalPvPMatrix = universalPvPMatrix
+
+-- [UPDATED] The Custom Test Rotation with Metadata Stopcast
+jungle.testStopcastSet = function(_target)
+    return {
+        -- Priority 1: Cast Regrowth for the HoT Buff. 
+        -- Condition: Ready to cast AND target is missing the buff.
+        -- Metadata: nil (We want the buff to land regardless of health).
+        { 
+            _target, 
+            "Regrowth", 
+            jungle.ReadyCastSpell("Regrowth", _target) and not jungle.unitCacheBuff(_target, 'Regrowth', true), 
+            nil 
+        },
+        
+        -- Priority 2: Cast Regrowth as a Direct Heal.
+        -- Condition: Ready to cast AND target already has the buff.
+        -- Metadata: Abort if target's predicted life exceeds 95%.
+        { 
+            _target, 
+            "Regrowth", 
+            jungle.ReadyCastSpell("Regrowth", _target) and jungle.unitCacheBuff(_target, 'Regrowth', true), 
+			function(t) 
+					-- Stopcasting logic: Return TRUE to ABORT.
+					-- We abort if the buff is NOT found (you manually removed it).
+					return not jungle.unitCacheBuff(t, 'Regrowth', true) 
+				end
+        }
+    }
+end
+
+-- Helper function to specifically calculate the fastest Druid interrupt
+local function druid_interrupt(target)
+    if not target or not UnitExists(target) or not UnitCanAttack("player", target) then return {} end
+
+    -- 1. CONTEXT & STATE DETECTION
+    local isCasting = UnitCastingInfo(target) ~= nil
+    local isChanneling = UnitChannelInfo(target) ~= nil
+    local needsInterrupt = isCasting or isChanneling
+    
+    -- If they aren't casting, short-circuit immediately to save CPU
+    if not needsInterrupt then return {} end
+
+    -- 2. RESOURCES & COOLDOWNS
+    local cp = GetComboPoints("player", target)
+    local inBear = jungle.Buff("Dire Bear Form", "player") or jungle.Buff("Bear Form", "player")
+
+    -- Smart CD & Range Checks for Shifting Logic
+    local bashReady = not jungle.SpellOnCD("Bash")
+    local bashRange = IsSpellInRange("Bash", target)
+    local inBashRange = (bashRange == 1) or (bashRange == nil and CheckInteractDistance(target, 3))
+    
+    local chargeReady = not jungle.SpellOnCD("Feral Charge")
+    local chargeRange = IsSpellInRange("Feral Charge", target)
+    -- If IsSpellInRange returns nil, we fallback to a rough 28 yard check
+    local inChargeRange = (chargeRange == 1) or (chargeRange == nil and CheckInteractDistance(target, 4))
+    
+    -- We only shift to bear if we have an interrupt ready AND in range
+    local canShiftBear = ((bashReady and inBashRange) or (chargeReady and inChargeRange)) and not inBear
+
+    -- 3. THE INTERRUPT PRIORITY STACK
+    -- Format expected by Engine: { "Log Name", "Spell String", BooleanCondition, "Metadata" }
+    return {
+        -- PRIORITY 1: INSTANT CASTS (Current Form)
+        [1] = { "Bear Bash",     "Bash",         (jungle.ReadyCastSpell("Bash", target)), "INTERRUPT" },
+        [2] = { "Bear Charge",   "Feral Charge", (jungle.ReadyCastSpell("Feral Charge", target)), "INTERRUPT" },
+        [3] = { "Cat Maim",      "Maim",         (jungle.ReadyCastSpell("Maim", target) and cp > 0), "INTERRUPT" },
+
+        -- PRIORITY 2: FORM SHIFTING (Calculated Preparation)
+        -- If we can't instantly interrupt, but Bear tools are off CD, shift!
+        [4] = { "Shift to Bear", "Dire Bear Form", (canShiftBear), "INTERRUPT_PREP" }
+    }
+end
+jungle.druid_interrupt = druid_interrupt

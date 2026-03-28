@@ -119,6 +119,36 @@ local function buffParse(unit)
 	end)
 end
 
+-- local function auraParser(unit)
+	-- debuffParse(unit)
+	-- buffParse(unit)
+    
+    -- -- =======================================================
+    -- -- [NEW] HOT SCORE & TANK BIAS LOGIC
+    -- -- =======================================================
+    -- local u = unitCache[unit]
+    -- local score = 0
+    -- local pBuffs = u.auras.buffs.player
+    -- local anyBuffs = u.auras.buffs.nonplayer
+
+    -- -- Calculate base score
+    -- if pBuffs['Lifebloom'] then score = score + pBuffs['Lifebloom'].count end
+    -- if pBuffs['Rejuvenation'] or anyBuffs['Rejuvenation'] then score = score + 1 end
+    -- if pBuffs['Regrowth'] or anyBuffs['Regrowth'] then score = score + 1 end
+	
+	-- u.currLife = u.currLife + (score * 0.04)
+
+    -- -- Tank Bias: Force tanks to look like they have fewer HoTs so they get priority
+    -- if u.isTank and jungle.isTanking(unit) then
+        -- if u.currLife < 0.60 then
+            -- score = score - 2 -- Critical Tank
+        -- elseif u.currLife < 0.90 then
+            -- score = score - 1 -- Injured Tank
+        -- end
+    -- end
+
+    -- u.hotScore = score
+-- end
 local function auraParser(unit)
 	debuffParse(unit)
 	buffParse(unit)
@@ -135,6 +165,19 @@ local function auraParser(unit)
     if pBuffs['Lifebloom'] then score = score + pBuffs['Lifebloom'].count end
     if pBuffs['Rejuvenation'] or anyBuffs['Rejuvenation'] then score = score + 1 end
     if pBuffs['Regrowth'] or anyBuffs['Regrowth'] then score = score + 1 end
+
+    -- [NEW] VIRTUAL HEALTH CALIBRATION
+    -- Active tanks get 1% per HoT, everyone else gets 4% per HoT
+    local multiplier = (u.isTank and jungle.isTanking(unit)) and 0.01 or 0.04
+    local paddingPct = score * multiplier
+    
+    u.currLife = u.currLife + paddingPct
+    
+    -- [NEW] SYNC BUCKETS: Adjust missingHP and hpBucket to match the new virtual life
+    local maxHP = UnitHealthMax(unit) or 1
+    local paddingHP = maxHP * paddingPct
+    u.missingHP = math.max(0, u.missingHP - paddingHP)
+    u.hpBucket = math.floor(u.missingHP / 500)
 
     -- Tank Bias: Force tanks to look like they have fewer HoTs so they get priority
     if u.isTank and jungle.isTanking(unit) then
@@ -436,3 +479,14 @@ local function countEntries(table)
   return count
 end
 jungle.countEntries = countEntries
+
+function GetTokenByGUID(targetGUID)
+    if not targetGUID then return nil end
+    for token, data in pairs(jungle.unitCache) do
+        if data.guid == targetGUID then
+            return token
+        end
+    end
+    return nil
+end
+jungle.GetTokenByGUID = GetTokenByGUID

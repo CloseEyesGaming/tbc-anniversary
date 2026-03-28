@@ -1,42 +1,50 @@
 local Jungle, jungle = ...
 
--- Metadata storage (Initialized in Main or Engine)
-jungle.CurrentCast = jungle.CurrentCast or {
-    targetGUID = nil,
-    spellName = nil,
-    priority = 999,
-    routineFunc = nil
-}
+--[[
+    UNIVERSAL STOPCAST ENGINE (Metadata-Driven)
+    -------------------------------------------
+    This engine monitors active player casts and evaluates whether they should be 
+    aborted based on custom rules provided by the rotation.
 
-function jungle.CurrentCastStop(spell, minPriority, maxPriority)
-    -- 1. Verify we are actually casting the spell we think we are
-    local castingName = UnitCastingInfo("player")
-    if not castingName or castingName ~= spell then 
+    HOW TO USE:
+    In your class rotation file (e.g., Druid.lua), define your rules in the 4th parameter:
+    { target, "Spell Name", start_condition, stop_condition_func }
+
+    PARAMETER 4 (Metadata Closure):
+    - Receives one argument: 't' (The stable UnitToken resolved from the original GUID).
+    - MUST return TRUE to trigger a /stopcasting command.
+    - MUST return FALSE to allow the cast to continue.
+
+    WHY THIS APPROACH?
+    1. Stability: Uses GUID-to-Token resolution so target swaps don't break the check.
+    2. Performance: Only evaluates the specific rule for the active spell.
+    3. Safety: Decoupled from start conditions to avoid Global Cooldown (GCD) loops.
+
+    EXAMPLE (Overheal Prevention):
+    { _target, "Regrowth", true, function(t) return jungle.predictedLife(t) > 0.95 end }
+--]]
+
+function jungle.CurrentCastStop()
+    -- 1. Identify current player activity
+    local castingSpell = UnitCastingInfo("player")
+    
+    -- 2. Exit if not casting or if the cast doesn't match our recorded state
+    if not castingSpell or castingSpell ~= jungle.CurrentCast.spellName then 
         return false 
     end
 
-    local target = "focus" -- Engine logic uses focus for cast targets
-    local routine = jungle.CurrentCast.routineFunc
-    if not routine then return false end
-
-    -- 2. Execute the routine to check for higher priority shifts
-    -- We only care about indices from 1 up to our current cast's priority
-    local tbl = routine(target)
-    for i = minPriority, maxPriority do
-        if tbl[i] then
-            local isConditionMet = tbl[i][3]
-            
-            -- If a HIGHER priority (lower index) condition is now true: STOP
-            if isConditionMet and i < jungle.CurrentCast.priority then
-                return true
-            end
-
-            -- If our OWN condition is no longer true (e.g. overheal/topped off): STOP
-            if not isConditionMet and i == jungle.CurrentCast.priority then
-                return true
-            end
+    -- 3. Retrieve the metadata closure passed from the rotation
+    local rule = jungle.CurrentCast.stopcastFunc
+    
+    if type(rule) == "function" then
+        -- 4. Resolve the GUID back to a usable UnitToken (player, party1, etc.)
+        local stableToken = jungle.GetTokenByGUID(jungle.CurrentCast.targetGUID)
+        
+        if stableToken and UnitExists(stableToken) then
+            -- 5. Execute the custom rule logic
+            return rule(stableToken)
         end
     end
-
+    
     return false
 end

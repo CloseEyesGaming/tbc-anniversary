@@ -29,17 +29,34 @@ function Engine:ProcessRotation()
     local _, engClass = UnitClass('player')
     if engClass == "DRUID" then
         local rot = self.rotation
+		
+		-- ==========================================
+        -- [NEW] GLOBAL STOPCAST INTERCEPTOR
+        -- ==========================================
+        local castingName = UnitCastingInfo("player")
+        if castingName then
+            -- We pass 1 and 10 as priority bounds (safely covers our rotation sizes)
+            if jungle.CurrentCastStop(castingName, 1, 10) then
+                return jungle.Cast:CastSpell("Stopcasting", "player", 1)
+            end
+            -- If we are casting and shouldn't stop, we return early so we don't start a new cast
+            return true 
+        end
+        -- ==========================================
+        -- ==========================================
+		
 -- Inside Engine:ProcessRotation() for DRUID
 		if self.activeThread == 1 then
-			if rot:rotate({jungle.universalHealSetV3}, 1) then return true end
+			-- if rot:rotate({jungle.universalPvPMatrix}, 1) then return true end
+			if rot:rotate({jungle.universalPvPMatrix}, 1) then return true end
 		elseif self.activeThread == 2 then
-			if rot:rotate({jungle.universalHealSet}, 1) then return true end
+			if rot:rotate({jungle.universalHealSetV6}, 1) then return true end
 		elseif self.activeThread == 3 then
 			if rot:rotate({jungle.dispellSet}, 1) then return true end
 		elseif self.activeThread == 4 then
 			if rot:rotate({jungle.tankRollSet2, jungle.raidHealSet2}, 1) then return true end
 		elseif self.activeThread == 5 then -- MOVED: Baseline DPS Thread
-			if rot:dpsRotate({jungle.dpsSet}, 1) then return true end
+			if rot:dpsRotate({jungle.druid_interrupt, jungle.dpsSet}, 1) then return true end
 		elseif self.activeThread == 6 then 
 			if rot:rotate({jungle.buffSet}, 1) then return true end
 		elseif self.activeThread == 7 then

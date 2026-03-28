@@ -51,7 +51,7 @@ Hotkeys.GlobalDefaults = {
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "Fishing",     macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
-    { id = "Lure", macro = "/use Aquadynamic Fish Attractor\n/use 16",		 icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Lure", macro = "/use Sharpened Fish Hook\n/use 16",		 icon = "Interface\\Icons\\Trade_Fishing" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -81,6 +81,7 @@ Hotkeys.ClassSpells = {
         { id = "Ferocious Bite", icon = "Interface\\Icons\\Ability_Druid_FerociousBite" },
         { id = "Rake", icon = "Interface\\Icons\\Ability_Druid_Disembowel" },
         { id = "Pounce", icon = "Interface\\Icons\\Ability_Druid_SupriseAttack" },
+		{ id = "Maim", icon = "Interface\\Icons\\Ability_Druid_Maim" },
         { id = "Mangle (Bear)", icon = "Interface\\Icons\\Ability_Druid_Mangle2" },
         { id = "Maul", icon = "Interface\\Icons\\Ability_Druid_Maul" },
         { id = "Lacerate", icon = "Interface\\Icons\\Ability_Druid_Lacerate" },
