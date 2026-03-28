@@ -1,5 +1,4 @@
-import bettercam, keyboard, re, time, os
-import pydirectinput
+import bettercam, keyboard, re, time, os, ctypes
 from Fishing.Fish import FishingEngine
 
 # --- RESTORED ORIGINAL GAMEPAD LOGIC ---
@@ -10,31 +9,24 @@ try:
     virtual_pad = vg.VX360Gamepad()
     BTN = vg.XUSB_BUTTON
     GAMEPAD_MAP = {
-        # --- Face Buttons ---
         'PAD1': ('btn', BTN.XUSB_GAMEPAD_A), 'PAD2': ('btn', BTN.XUSB_GAMEPAD_B),
         'PAD3': ('btn', BTN.XUSB_GAMEPAD_X), 'PAD4': ('btn', BTN.XUSB_GAMEPAD_Y),
-        # --- Shoulders & Triggers ---
         'PADLSHOULDER': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER), 'PAD5': ('btn', BTN.XUSB_GAMEPAD_LEFT_SHOULDER),
         'PADRSHOULDER': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER), 'PAD6': ('btn', BTN.XUSB_GAMEPAD_RIGHT_SHOULDER),
         'PADLTRIGGER': ('trigger', 'left'), 'PADRTRIGGER': ('trigger', 'right'),
-        # --- D-Pad ---
         'PADDUP': ('btn', BTN.XUSB_GAMEPAD_DPAD_UP), 'PADDDOWN': ('btn', BTN.XUSB_GAMEPAD_DPAD_DOWN),
         'PADDLEFT': ('btn', BTN.XUSB_GAMEPAD_DPAD_LEFT), 'PADDRIGHT': ('btn', BTN.XUSB_GAMEPAD_DPAD_RIGHT),
-        # --- Stick Clicks ---
         'PADLSTICK': ('btn', BTN.XUSB_GAMEPAD_LEFT_THUMB), 'PADRSTICK': ('btn', BTN.XUSB_GAMEPAD_RIGHT_THUMB),
-        # --- Stick Movement (Digital direction to Analog Max) ---
         'PADLSTICKUP': ('stick', 'left', 0.0, 1.0), 'PADLSTICKDOWN': ('stick', 'left', 0.0, -1.0),
         'PADLSTICKLEFT': ('stick', 'left', -1.0, 0.0), 'PADLSTICKRIGHT': ('stick', 'left', 1.0, 0.0),
         'PADRSTICKUP': ('stick', 'right', 0.0, 1.0), 'PADRSTICKDOWN': ('stick', 'right', 0.0, -1.0),
         'PADRSTICKLEFT': ('stick', 'right', -1.0, 0.0), 'PADRSTICKRIGHT': ('stick', 'right', 1.0, 0.0),
-        # --- System ---
         'PADFORWARD': ('btn', BTN.XUSB_GAMEPAD_START), 'PADBACK': ('btn', BTN.XUSB_GAMEPAD_BACK),
     }
-except:
+except ImportError:
     HAS_GAMEPAD_LIB = False
 
 
-# --- RESTORED ORIGINAL KEY NORMALIZATION ---
 def normalize_key(lua_key):
     lua_key = lua_key.upper().strip()
     modifiers = []
@@ -54,13 +46,23 @@ def normalize_key(lua_key):
     return {'type': 'keyboard', 'modifiers': modifiers, 'key': clean_key}
 
 
-# --- RESTORED ORIGINAL EXECUTION LOGIC ---
+def force_release_modifiers():
+    """Safety net to unstick Windows modifiers."""
+    for mod in ['ctrl', 'alt', 'shift']:
+        keyboard.release(mod)
+
+
 def execute_action(action):
-    for mod in action['modifiers']: keyboard.press(mod)
+    # Send modifiers using keyboard library
+    for mod in action['modifiers']:
+        keyboard.press(mod)
+
     try:
+        press_duration = 0.02
+
         if action['type'] == 'keyboard':
-            keyboard.press(action['key']);
-            time.sleep(0.05);
+            keyboard.press(action['key'])
+            time.sleep(press_duration)
             keyboard.release(action['key'])
 
         elif action['type'] == 'gamepad' and HAS_GAMEPAD_LIB:
@@ -70,29 +72,27 @@ def execute_action(action):
                 if g_type == 'btn':
                     virtual_pad.press_button(button=data[1])
                     virtual_pad.update()
-                    time.sleep(0.05)
+                    time.sleep(press_duration)
                     virtual_pad.release_button(button=data[1])
                 elif g_type == 'trigger':
-                    # data[1] is 'left' or 'right'
                     if data[1] == 'left':
                         virtual_pad.left_trigger(value=255)
                     else:
                         virtual_pad.right_trigger(value=255)
                     virtual_pad.update()
-                    time.sleep(0.05)
+                    time.sleep(press_duration)
                     if data[1] == 'left':
                         virtual_pad.left_trigger(value=0)
                     else:
                         virtual_pad.right_trigger(value=0)
                 elif g_type == 'stick':
-                    # data = ('stick', side, x, y)
                     side, x, y = data[1], data[2], data[3]
                     if side == 'left':
                         virtual_pad.left_joystick_float(x_value_float=x, y_value_float=y)
                     else:
                         virtual_pad.right_joystick_float(x_value_float=x, y_value_float=y)
                     virtual_pad.update()
-                    time.sleep(0.05)
+                    time.sleep(press_duration)
                     if side == 'left':
                         virtual_pad.left_joystick_float(x_value_float=0.0, y_value_float=0.0)
                     else:
@@ -101,7 +101,12 @@ def execute_action(action):
                 virtual_pad.update()
     except Exception as e:
         print(f"Execute Error: {e}")
-    for mod in reversed(action['modifiers']): keyboard.release(mod)
+    finally:
+        # Guarantee modifiers release
+        for mod in reversed(action['modifiers']):
+            keyboard.release(mod)
+        if action['modifiers']:
+            force_release_modifiers()
 
 
 def parse_lua_dataset(file_path):
@@ -128,43 +133,52 @@ if __name__ == "__main__":
     fish = FishingEngine()
     is_auto = False
 
-    print(f"Bot Context Restored. F4: Toggle Auto | Num1-6: Manual")
+    print(f"Bot Context Restored. F4: Toggle Auto | Numpad 1-6: Manual (Hold to loop)")
+
+    f4_was_pressed = False
+    last_action_time = 0
+
+    NUMPAD_VK_CODES = {1: 0x61, 2: 0x62, 3: 0x63, 4: 0x64, 5: 0x65, 6: 0x66}
+    F4_VK_CODE = 0x73
+
     while True:
-        # 1. F4: ENABLE Auto-Pilot ONLY
-        if keyboard.is_pressed('f4'):
-            if not is_auto:
-                is_auto = True
-                print(f"[System] AUTO-PILOT ENABLED (is_auto: {is_auto})")
-            time.sleep(0.5)
+        current_time = time.time()
 
-        # 2. Num 1-6: DISABLE Auto-Pilot + Execute Manual
-        manual_active = any(keyboard.is_pressed(f'num {i}') for i in range(1, 7))
+        # 1. Hardware-level F4 Toggle
+        f4_is_pressed = (ctypes.windll.user32.GetAsyncKeyState(F4_VK_CODE) & 0x8000) != 0
+        if f4_is_pressed and not f4_was_pressed:
+            is_auto = not is_auto
+            print(f"[System] AUTO-PILOT {'ENABLED' if is_auto else 'DISABLED'} (is_auto: {is_auto})")
+        f4_was_pressed = f4_is_pressed
 
-        if manual_active:
-            if is_auto:
+        # 2. Hardware-level Manual Keys
+        manual_active = False
+        for num_id, vk_code in NUMPAD_VK_CODES.items():
+            if (ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000) != 0:
+                manual_active = True
+                break
+
+        # --- DYNAMIC COOLDOWN ---
+        # 0.05s if you are holding a manual key, 0.5s if it's running Auto mode
+        active_cooldown = 0.05 if manual_active else 0.5
+
+        # 3. Execution Logic with Dynamic Cooldown
+        if (manual_active or is_auto) and (current_time - last_action_time > active_cooldown):
+
+            if manual_active and is_auto:
                 is_auto = False
-                print(f"[System] MANUAL OVERRIDE: Auto-Pilot DISABLED (is_auto: {is_auto})")
+                print(f"[System] MANUAL OVERRIDE: Auto-Pilot DISABLED")
 
-            # Immediate Manual Execution (No delay)
             frame = camera.grab()
             if frame is not None:
                 pixel = tuple(frame[0][0])
                 if pixel in ACTION_MAP:
-                    print(f"Manual Action: {ACTION_MAP[pixel]['name']}")
+                    prefix = "Manual Action" if manual_active else "Auto Combat"
+                    print(f"{prefix}: {ACTION_MAP[pixel]['name']}")
                     execute_action(ACTION_MAP[pixel])
 
-        # 3. Automation Loop (F4 Mode)
-        elif is_auto:
-            frame = camera.grab()
-            if frame is not None:
-                pixel = tuple(frame[0][0])
-                if pixel in ACTION_MAP:
-                    print(f"Auto Combat: {ACTION_MAP[pixel]['name']}")
-                    execute_action(ACTION_MAP[pixel])
-                    # Apply the Auto-only delay
-                    time.sleep(0.5)
+                    last_action_time = time.time()
 
-            # Process Fishing
-            fish.poll()
-
-        time.sleep(0.05)
+                    # 4. Process Fishing loop unhindered
+        fish.poll()
+        time.sleep(0.01)
