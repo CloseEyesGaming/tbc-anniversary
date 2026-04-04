@@ -35,6 +35,7 @@ def trigger_action(score):
 
 class FishingEngine:
     def __init__(self):
+        self.stream = None  # <--- ADD THIS LINE HERE
         try:
             data, file_fs = sf.read(TEMPLATE_FILE)
             if len(data.shape) > 1: data = np.mean(data, axis=1)
@@ -57,6 +58,11 @@ class FishingEngine:
                         self.dev = d
                         break
 
+            # <--- SAFETY CHECK --->
+            if self.dev is None:
+                print("[Fishing] Audio device not found. Fishing module disabled, but bot will continue running.")
+                return
+
             print(f"[Fishing] Engine Active on: {self.dev['name']}")
             self.fs = int(self.dev["defaultSampleRate"])
             if self.fs != file_fs:
@@ -70,9 +76,10 @@ class FishingEngine:
                                       frames_per_buffer=self.STEP_SIZE)
             self.last_trigger = 0
         except Exception as e:
-            print(f"[Fishing] Init Error: {e}")
+            print(f"[Fishing] Init Error: {e} - Fishing module disabled.")
 
     def poll(self):
+        if self.stream is None: return
         if self.stream.get_read_available() < self.STEP_SIZE: return
         data = self.stream.read(self.STEP_SIZE, exception_on_overflow=False)
         new_audio = np.frombuffer(data, dtype=np.float32)
