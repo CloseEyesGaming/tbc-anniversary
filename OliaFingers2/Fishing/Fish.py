@@ -1,17 +1,27 @@
 import pyaudiowpatch as pyaudio
 import soundfile as sf
 import numpy as np
+import os
+import sys
 from scipy import signal
 import pydirectinput
 import threading
 import time
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # --- CONFIGURATION (RESTORED FROM ORIGINAL) ---
 TRIGGER_KEY = '`'
 FISHING_KEY = 'u'
 MIN_SCORE = 0.0035
 MAX_SCORE = 0.0065
-TEMPLATE_FILE = "Fishing/MasterTemplate.wav"
+TEMPLATE_FILE = resource_path("Fishing/MasterTemplate.wav")
 
 
 def normalize(data):
