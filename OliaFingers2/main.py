@@ -128,65 +128,81 @@ def parse_lua_dataset(file_path):
 
 
 if __name__ == "__main__":
-    try:
-        ACTION_MAP = parse_lua_dataset('OliaEyes6.lua')
-        camera = bettercam.create(region=(0, 0, 1, 1))
-        fish = FishingEngine()
-        is_auto = False
+    ACTION_MAP = parse_lua_dataset('OliaEyes6.lua')
+    camera = bettercam.create(region=(0, 0, 1, 1))
+    fish = FishingEngine()
+    is_auto = False
 
-        print(f"Bot Context Restored. F4: Toggle Auto | Numpad 1-6: Manual (Hold to loop)")
+    print(f"Bot Context Restored. F4: Toggle Auto | Numpad 1-6: Manual (Hold to loop)")
 
-        f4_was_pressed = False
-        last_action_time = 0
+    f4_was_pressed = False
+    last_action_time = 0
+    last_duplicate_time = 0
 
-        NUMPAD_VK_CODES = {1: 0x61, 2: 0x62, 3: 0x63, 4: 0x64, 5: 0x65, 6: 0x66}
-        F4_VK_CODE = 0x73
+    NUMPAD_VK_CODES = {1: 0x61, 2: 0x62, 3: 0x63, 4: 0x64, 5: 0x65, 6: 0x66}
+    F4_VK_CODE = 0x73
 
-        while True:
-            current_time = time.time()
+    while True:
+        current_time = time.time()
 
-            # 1. Hardware-level F4 Toggle
-            f4_is_pressed = (ctypes.windll.user32.GetAsyncKeyState(F4_VK_CODE) & 0x8000) != 0
-            if f4_is_pressed and not f4_was_pressed:
-                is_auto = not is_auto
-                print(f"[System] AUTO-PILOT {'ENABLED' if is_auto else 'DISABLED'} (is_auto: {is_auto})")
-            f4_was_pressed = f4_is_pressed
+        # 1. Hardware-level F4 Toggle
+        f4_is_pressed = (ctypes.windll.user32.GetAsyncKeyState(F4_VK_CODE) & 0x8000) != 0
+        if f4_is_pressed and not f4_was_pressed:
+            is_auto = not is_auto
+            print(f"[System] AUTO-PILOT {'ENABLED' if is_auto else 'DISABLED'} (is_auto: {is_auto})")
+        f4_was_pressed = f4_is_pressed
 
-            # 2. Hardware-level Manual Keys
-            manual_active = False
-            for num_id, vk_code in NUMPAD_VK_CODES.items():
-                if (ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000) != 0:
-                    manual_active = True
-                    break
+        # 2. Hardware-level Manual Keys
+        manual_active = False
+        active_num_id = None
+        active_vk_code = None
+        for num_id, vk_code in NUMPAD_VK_CODES.items():
+            if (ctypes.windll.user32.GetAsyncKeyState(vk_code) & 0x8000) != 0:
+                manual_active = True
+                active_num_id = num_id
+                active_vk_code = vk_code
+                break
 
-            # --- DYNAMIC COOLDOWN ---
-            # 0.05s if you are holding a manual key, 0.5s if it's running Auto mode
-            active_cooldown = 0.05 if manual_active else 0.5
+        # --- DYNAMIC COOLDOWN ---
+        # 0.05s if you are holding a manual key, 0.5s if it's running Auto mode
+        active_cooldown = 0.05 if manual_active else 0.5
 
-            # 3. Execution Logic with Dynamic Cooldown
-            if (manual_active or is_auto) and (current_time - last_action_time > active_cooldown):
+        # --- DUPLICATE SEND NUM1-6 ---
+        if manual_active and (current_time - last_duplicate_time >= 0.1):
+            last_duplicate_time = current_time
+            try:
+                scan_code = ctypes.windll.user32.MapVirtualKeyW(active_vk_code, 0)
+                # Use keybd_event directly to avoid 'keyboard' library altering extended flags (which causes Numpad 2 -> Down Arrow)
+                ctypes.windll.user32.keybd_event(active_vk_code, scan_code, 0, 0) # Press
+                time.sleep(0.02)
+                ctypes.windll.user32.keybd_event(active_vk_code, scan_code, 2, 0) # Release (2 = KEYEVENTF_KEYUP)
+                current_time = time.time()
+            except Exception as e:
+                print(f"Duplicate Send Error: {e}")
 
-                if manual_active and is_auto:
-                    is_auto = False
-                    print(f"[System] MANUAL OVERRIDE: Auto-Pilot DISABLED")
+        # 3. Execution Logic with Dynamic Cooldown
+        if (manual_active or is_auto) and (current_time - last_action_time > active_cooldown):
 
-                frame = camera.grab()
-                if frame is not None:
-                    pixel = tuple(frame[0][0])
-                    if pixel in ACTION_MAP:
-                        prefix = "Manual Action" if manual_active else "Auto Combat"
-                        print(f"{prefix}: {ACTION_MAP[pixel]['name']}")
-                        execute_action(ACTION_MAP[pixel])
+            if manual_active and is_auto:
+                is_auto = False
+                print(f"[System] MANUAL OVERRIDE: Auto-Pilot DISABLED")
 
-                        last_action_time = time.time()
+            frame = camera.grab()
+            if frame is not None:
+                pixel = tuple(frame[0][0])
+                if pixel in ACTION_MAP:
+                    prefix = "Manual Action" if manual_active else "Auto Combat"
+                    print(f"{prefix}: {ACTION_MAP[pixel]['name']}")
+                    execute_action(ACTION_MAP[pixel])
 
-            # 4. Process Fishing loop unhindered
-            fish.poll()
-            time.sleep(0.01)
-            
-    except Exception as e:
-        import traceback
-        print("\n\n====== A CRITICAL ERROR OCCURRED ======")
-        traceback.print_exc()
-        print("=======================================\n")
-        input("Press Enter to close this window...")
+                    last_action_time = time.time()
+
+                    # 4. Process Fishing loop unhindered
+        fish.poll()
+        time.sleep(0.01)
+
+
+
+
+
+        

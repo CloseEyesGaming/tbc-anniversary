@@ -1,27 +1,27 @@
 import pyaudiowpatch as pyaudio
 import soundfile as sf
 import numpy as np
-import os
-import sys
 from scipy import signal
 import pydirectinput
 import threading
 import time
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+import sys
+import os
 
 # --- CONFIGURATION (RESTORED FROM ORIGINAL) ---
 TRIGGER_KEY = '`'
 FISHING_KEY = 'u'
 MIN_SCORE = 0.0035
 MAX_SCORE = 0.0065
-TEMPLATE_FILE = resource_path("Fishing/MasterTemplate.wav")
+
+# Resolve TEMPLATE_FILE relative to sys._MEIPASS if frozen, otherwise relative to the parent directory of this file.
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+TEMPLATE_FILE = os.path.join(base_path, "Fishing", "MasterTemplate.wav")
 
 
 def normalize(data):
@@ -53,20 +53,46 @@ class FishingEngine:
             self.p = pyaudio.PyAudio()
             wasapi = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
 
-            # Original Device Search logic
+            # Universal loopback device search logic
             self.dev = None
-            for i in range(self.p.get_device_count()):
-                d = self.p.get_device_info_by_index(i)
-                if d["hostApi"] == wasapi["index"] and "MAJOR III" in d["name"].upper() and d.get("isLoopbackDevice"):
-                    self.dev = d
-                    break
-            if not self.dev:
+            try:
                 def_out = self.p.get_device_info_by_index(wasapi["defaultOutputDevice"])
-                for i in range(self.p.get_device_count()):
-                    d = self.p.get_device_info_by_index(i)
-                    if d["name"] == def_out["name"] and d.get("isLoopbackDevice"):
-                        self.dev = d
+                def_name = def_out["name"]
+            except Exception:
+                def_out = None
+                def_name = ""
+
+            # Helper generator to yield loopback devices across both pyaudiowpatch and standard pyaudio
+            def get_loopback_devices():
+                if hasattr(self.p, "get_loopback_device_info_generator"):
+                    yield from self.p.get_loopback_device_info_generator()
+                else:
+                    for i in range(self.p.get_device_count()):
+                        d = self.p.get_device_info_by_index(i)
+                        if d.get("hostApi") == wasapi["index"]:
+                            if d.get("isLoopbackDevice") or "LOOPBACK" in d["name"].upper() or "STEREO MIX" in d["name"].upper():
+                                yield d
+
+            # Tier 1: Search for loopback device matching default output device name
+            if def_name:
+                for loopback in get_loopback_devices():
+                    if def_name in loopback["name"] or loopback["name"].startswith(def_name):
+                        self.dev = loopback
                         break
+
+            # Tier 2: Search for any loopback device containing common playback keywords
+            if not self.dev:
+                for loopback in get_loopback_devices():
+                    lname = loopback["name"].upper()
+                    if any(kw in lname for kw in ["SPEAKERS", "HEADPHONES", "LINE", "SYSTEM", "CABLE", "AUDIO"]):
+                        self.dev = loopback
+                        break
+
+            # Tier 3: Grab the first available loopback device
+            if not self.dev:
+                for loopback in get_loopback_devices():
+                    self.dev = loopback
+                    break
 
             # <--- SAFETY CHECK --->
             if self.dev is None:
