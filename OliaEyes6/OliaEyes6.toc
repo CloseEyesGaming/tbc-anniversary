@@ -3,7 +3,7 @@
 ## Notes: Automation Core
 ## Author: Olia
 ## Version: 5.0
-## SavedVariables: OliaEyes_Export, OliaDebugLog
+## SavedVariables: OliaEyes_Export, OliaDebugLog, JungleMissLog, OliaArmsLog
 
 
 Offsets.lua
@@ -15,6 +15,7 @@ Core/Spell.lua
 Core/Aura.lua
 Core/Unit.lua
 Core/Hotkeys.lua
+Core/SwingTimer.lua
 # ------------------------------------------
 
 # --- LOGIC & CLASSES ---
@@ -30,11 +31,10 @@ LosCheck.lua
 DRreturns.lua
 Debug.lua
 CastomSpellCooldown.lua
-ShadowCrashHelper.lua
 Energy.lua
 
 # --- ROUTINES ---
-Routines/DeathKnight.lua
+Routines/Follower.lua
 Routines/Druid.lua
 Routines/Hunter.lua
 Routines/Mage.lua

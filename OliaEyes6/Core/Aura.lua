@@ -135,6 +135,7 @@ local function isSlowed(_target)
     return false
 end
 jungle.isSlowed = isSlowed
+jungle.IsTargetSlowed = isSlowed
 
 local function isSlowProtected(_target)
     local b = jungle.slowImmunityBuffs
@@ -144,6 +145,7 @@ local function isSlowProtected(_target)
     return false
 end
 jungle.isSlowProtected = isSlowProtected
+jungle.IsTargetSlowProtected = isSlowProtected
 
 local function hasAuraTypeCount(_target, _filter, _type)
     local cache = ScanAuras(_target, _filter)

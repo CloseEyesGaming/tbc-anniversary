@@ -29,10 +29,23 @@ local function SpellOnCD(_spell)
         return true -- Treat unknown spells as "on cooldown" to skip them
     end
 
-    -- 2. Logic: If spell duration > GCD duration, it's on real CD
-    local _, gcdDuration = GetGCDValues()
+    -- 2. Immediate pass for completely ready or Off-GCD spells
+    if spellDuration <= 0.05 then
+        return false
+    end
+
+    -- 3. Logic: If spell duration > GCD duration, it's on real CD
+    local gcdStart, gcdDuration = GetGCDValues()
     if (spellDuration - gcdDuration) <= 0.05 then 
-        return false -- Ready (or just on GCD)
+        -- [NEW] Early Fire Window Check for GCD-locked spells
+        if gcdStart and gcdStart > 0 then
+            local gcdRemaining = (gcdStart + gcdDuration) - GetTime()
+            -- If GCD has more than 0.5s left, don't fire the pixel yet
+            if gcdRemaining > 0.5 then
+                return true
+            end
+        end
+        return false -- Ready (or GCD is within 0.5s of expiring)
     else
         return true -- On actual cooldown
     end
@@ -75,21 +88,11 @@ local function ReadyCastSpell(_spell, _target)
         if inRange ~= 1 then return false end
     end
     
-    -- 4. Cooldown & GCD Check [UPDATED]
-    local start, duration = GetSpellCooldown(_spell)
-    if not start then return false end
-
-    -- If duration > 0, the spell is "busy" (either Global CD or Spell CD)
-    if duration > 0 then
-        local readyAt = start + duration - lagHome
-        local rem = readyAt - GetTime()
-
-        -- STRICT GCD THROTTLE:
-        -- Only return true if we are within the "Spell Queue Window" (0.2s).
-        -- Otherwise, we are too early, and casting now would just spam errors.
-        if rem > 0.2 then
-            return false
-        end
+    -- 4. Cooldown Check [UPDATED]
+    -- The user requested we ignore GCD to allow "prespamming" via the engine.
+    -- We only return false if the spell is on a REAL cooldown.
+    if SpellOnCD(_spell) then
+        return false
     end
     
     -- 5. Player State
@@ -98,3 +101,46 @@ local function ReadyCastSpell(_spell, _target)
     return true
 end
 jungle.ReadyCastSpell = ReadyCastSpell
+
+-- Checks if a spell is ready (has mana/stance, known) and NOT on a real cooldown, ignoring GCD.
+-- This allows rotations to check if they should "prespam" a spell.
+local function IsSpellReadyIgnoreGCD(_spell)
+    -- 1. Check if spell exists and is known
+    local name = GetSpellInfo(_spell)
+    if not name or not GetSpellBookItemInfo(_spell) then 
+        return false 
+    end
+    
+    -- 2. Check Usable (Mana/Stance)
+    local usable, nomana = IsUsableSpell(_spell)
+    if (not usable) or nomana then return false end
+    
+    -- 3. Check Cooldown (ignoring GCD)
+    if SpellOnCD(_spell) then
+        return false
+    end
+    
+    -- 4. Player State
+    if UnitIsDeadOrGhost('player') then return false end
+
+    return true
+end
+jungle.IsSpellReadyIgnoreGCD = IsSpellReadyIgnoreGCD
+
+function jungle.IsTrinketReady(slotID)
+    local itemID = GetInventoryItemID("player", slotID)
+    if itemID then
+        local isUsable = IsUsableItem(itemID)
+        local start, duration = GetInventoryItemCooldown("player", slotID)
+        local isOnCooldown = (start and start > 0 and duration > 0)
+
+        if isUsable and not isOnCooldown then
+            return true
+        end
+    end
+    return false
+end
+
+function jungle.AreTrinketsReady()
+    return jungle.IsTrinketReady(13) or jungle.IsTrinketReady(14)
+end

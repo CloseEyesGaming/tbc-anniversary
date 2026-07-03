@@ -4,6 +4,12 @@ local Jungle, jungle = ...
 jungle.CurrentCast = jungle.CurrentCast or {}
 
 local Rotation = {}
+
+local function ShouldIgnoreUnlearnedSpell(spell)
+    local ignoredSpells = jungle.ignoreUnlearnedSpells
+    return ignoredSpells and ignoredSpells[spell] and GetSpellBookItemInfo(spell) == nil
+end
+
 function Rotation:new()
     local self = {}
     setmetatable(self, { __index = Rotation })
@@ -14,7 +20,7 @@ function Rotation:condition(rotations, pix, _target)
     for i = 1, #rotations do
         local tbl = rotations[i](_target)
         for j = 1, #tbl do
-            if tbl[j] and tbl[j][3] then 
+            if tbl[j] and tbl[j][3] and not ShouldIgnoreUnlearnedSpell(tbl[j][2]) then 
                 -- Store the routine function for the stopcast engine's potential re-evaluation
                 jungle.CurrentCast.routineFunc = rotations[i]
                 

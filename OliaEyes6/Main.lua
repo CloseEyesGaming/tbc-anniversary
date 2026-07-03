@@ -28,15 +28,9 @@ jungle.currentTick = 0
 -- Main Event Loop
 local f = CreateFrame("Frame");
 function f:onUpdate(sinceLastUpdate)
-    self.sinceLastUpdate = (self.sinceLastUpdate or 0) + sinceLastUpdate;
-    if ( self.sinceLastUpdate >= 0.01 ) then -- 20Hz Tick
-        
-        -- Delegate to Singleton Engine
-        if jungle.Engine then
-            jungle.Engine:OnUpdate(self.sinceLastUpdate)
-        end
-        
-        self.sinceLastUpdate = 0;
+    -- Delegate to Singleton Engine (Unlimited Framerate)
+    if jungle.Engine then
+        jungle.Engine:OnUpdate(sinceLastUpdate)
     end
 end
 

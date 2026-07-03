@@ -3,185 +3,108 @@ local Jungle, jungle = ...
 local _, instanceType = IsInInstance()
 
 local Controlled_Root_id = {
-	"Deathchill",
-	"Entangling Roots",
-	"Mass Entanglement",
-	"Landslide",
-	"Entrapment",
-	"Steel Trap",
-	"Steelclaw Trap",
-	"Tracker's Net",
-	"Frost Nova",
-	"Paralysis",
-	"Earthgrab",
-	"Super Sticky Tar",
-	"Freeze",
-	"Freezing Cold",
-	"Frostbite",
-	"Void Tendril's Grasp",
-	"Tormenting Backlash",
-	"Entrenched in Flame",
-	"Disable",
-	"Clash",
-	"Thunderstruck",
-	"Frost Grenade",
-	"Embersilk Net",
-	"Frostweave Net",
-	"Hooked Deep Sea Net",
+	"Entangling Roots", -- 339, 1062, 5195, 5196, 9852, 9853, 26989
+	"Nature's Grasp", -- 19975, 19974, 19973, 19972, 19971, 19970, 27010
+	"Frost Nova", -- 122, 865, 6131, 10230, 27088
+	"Freeze", -- 33395
+	"Frost Grenade", -- 39965
+	"Entrapment", -- 19185
+	"Improved Wing Clip", -- 19229
+	"Frostbite", -- 12494
+	"Improved Hamstring", -- 23694
 } 
 jungle.Controlled_Root_id = Controlled_Root_id
 
 local Controlled_Stun_id = {
-	"Zombie Explosion",
-	"Absolute Zero",
-	"Asphyxiate",
-	"Gnaw",
-	"Monstrous Blow",
-	"Dead of Winter",
-	"Chaos Nova",
-	"Illidan's Grasp",
-	"Fel Eruption",
-	"Metamorphosis",
-	"Maim",
-	"Rake",
-	"Mighty Bash",
-	"Overrun",
-	"Wild Hunt's Charge",
-	"Terror of the Skies",
-	"Binding Shot",
-	"Consecutive Concussion",
-	"Intimidation",
-	"Snowdrift",
-	"Leg Sweep",
-	"Double Barrel",
-	"Exorcism",
-	"Hammer of Justice",
-	"Wake of Ashes",
-	"Psychic Horror",
-	"Holy Word: Chastise Censure",
-	"Cheap Shot",
-	"Static Charge",
-	"Pulverize",
-	"Lightning Lasso",
-	"Axe Toss",
-	"Meteor Strike",
-	"Shadowfury",
-	"Shield Charge",
-	"Shockwave",
-	"Storm Bolt",
-	"Warpath",
-	"War Stomp",
-	"Bull Rush",
-	"Sparkling Driftglobe Core",
+	"Bash", -- 5211, 6798, 8983
+	"Pounce", -- 9005, 9823, 9827, 27006
+	"Intimidation", -- 24394
+	"Hammer of Justice", -- 853, 5588, 5589, 10308
+	"Cheap Shot", -- 1833
+	"Shadowfury", -- 30283, 30413, 30414
+	"Concussion Blow", -- 12809
+	"Charge Stun", -- 7922
+	"Intercept Stun", -- 20253, 20614, 20615, 25273, 25274
+	"War Stomp", -- 20549
+	"Goblin Mortar", -- 13237
+	"Tidal Charm", -- 835
+	"Celestial Focus", -- 16922
+	"Improved Concussive Shot", -- 19410
+	"Impact", -- 12355
+	"Seal of Justice Stun", -- 20170
+	"Blackout", -- 15269
+	"Pyroclasm", -- 18093
+	"Stoneclaw Stun", -- 39796
+	"Revenge Stun", -- 12798
+	"Mace Stun Effect", -- 5530
+	"Stunning Blow", -- 15283
+	"Stun", -- 56
+	"Stormherald/Deep Thunder", -- 34510
+	"Kidney Shot", -- 408, 8643
 }
 jungle.Controlled_Stun_id = Controlled_Stun_id
 
 local Disorient_id = {
-	"Blinding Sleet", -- 207167,  -- "disorient",       -- Blinding Sleet
-	"Sigil of Misery", -- 207685,  -- "disorient",       -- Sigil of Misery
-	"Cyclone", -- 33786,   -- "disorient",       -- Cyclone
-	"Scare Beast", -- 1513,    -- "disorient",       -- Scare Beast
-	"Dragon's Breath", -- 31661,   -- "disorient",       -- Dragon's Breath
-	"Song of Chi-ji", -- 198909,  -- "disorient",       -- Song of Chi-ji
-	"Incendiary Brew", --  202274,  -- "disorient",       -- Incendiary Brew
-	"Blinding Light", --  105421,  -- "disorient",       -- Blinding Light
-	"Turn Evil", --  10326,   -- "disorient",       -- Turn Evil
-	"Mind Control", --  605,     -- "disorient",       -- Mind Control
-	"Psychic Scream", --   8122,    -- "disorient",       -- Psychic Scream
-	"Mind Bomb", --  226943,  -- "disorient",       -- Mind Bomb
-	"Blind", --   2094,    -- "disorient",       -- Blind
-	"Fear", --   118699,  -- "disorient",       -- Fear
-	"Howl of Terror", --  5484,    -- "disorient",       -- Howl of Terror
-	"Seduction", --  261589,  -- "disorient",       -- Seduction (Grimoire of Sacrifice)
-	"Intimidating Shout", --   5246,    -- "disorient",       -- Intimidating Shout 1
-	"Agent of Chaos", --  331866,  -- "disorient",       -- Agent of Chaos (Venthyr Covenant)
+	"Cyclone", -- 33786
+	"Blind", -- 2094
+	"Scare Beast", -- 1513, 14326, 14327
+	"Turn Evil", -- 10326
+	"Psychic Scream", -- 8122, 8124, 10888, 10890
+	"Fear", -- 5782, 6213, 6215
+	"Seduction", -- 6358
+	"Howl of Terror", -- 5484, 17928
+	"Intimidating Shout", -- 5246
+	"Flash Bomb Fear", -- 5134
+	"Mind Control", -- 605, 10911, 10912
+	"Gnomish Mind Control Cap", -- 13181
+	"Death Coil", -- 6789, 17925, 17926, 27223
 }
 jungle.Disorient_id = Disorient_id
 
 local Incapacitate_id = {
-	"Imprison",
-	"Hibernate",
-	"Incapacitating Roar",
-	"Time Stop",
-	"Freezing Trap",
-	"Scatter Shot",
-	"Mass Polymorph",
-	"Polymorph",
-	"Ring of Frost",
-	"Paralysis",
-	"Repentance",
-	"Shackle Undead",
-	"Holy Word: Chastise",
-	"Gouge",
-	"Sap",
-	"Hex",
-	"Sundering",
-	"Banish",
-	"Mortal Coil",
-	"Quaking Palm",
+	"Hibernate", -- 2637, 18657, 18658
+	"Maim", -- 22570
+	"Freezing Trap Effect", -- 3355, 14308, 14309
+	"Wyvern Sting", -- 19386, 24132, 24133, 27068
+	"Polymorph", -- 118, 12824, 12825, 12826
+	"Polymorph: Turtle", -- 28271
+	"Polymorph: Pig", -- 28272
+	"Repentance", -- 20066
+	"Sap", -- 6770, 2070, 11297
+	"Gouge", -- 1776, 1777, 8629, 11285, 11286, 38764
+	"Banish", -- 710, 18647
+	"Reckless Charge", -- 13327
+	"Rough Copper Bomb", -- 4064
+	"Large Copper Bomb", -- 4065
+	"Small Bronze Bomb", -- 4066
+	"Big Bronze Bomb", -- 4067
+	"Iron Grenade", -- 4068
+	"Mithril Frag Bomb", -- 12421
+	"Big Iron Bomb", -- 4069
+	"The Big One", -- 12562
+	"Hi-Explosive Bomb", -- 12543
+	"Thorium Grenade", -- 19769
+	"Dark Iron Bomb", -- 19784
+	"Fel Iron Bomb", -- 30216
+	"The Bigger One", -- 30461
+	"Adamantite Grenade", -- 30217
+	"Scatter Shot", -- 19503
+	"Dragon's Breath", -- 31661, 33041, 33042, 33043
+	"Counterattack", -- 19306, 20909, 20910, 27067
+	"Chastise", -- 44041, 44043, 44044, 44045, 44046, 44047
+	"Unstable Affliction", -- 43523, 31117
 }
 jungle.Incapacitate_id = Incapacitate_id
 
 local Silence_id = {
-	"Strangulate",
-	"Sigil of Silence",
-	"Reactive Resin",
-	"Spider Sting",
-	"Spider Venom",
-	"Wailing Arrow",
-	"Shield of Virtue",
-	"Silence",
-	"Unstable Affliction",
-	"Garrote",
-	"Unstable Affliction Silence Effect",
+	"Silence", -- 15487
+	"Spell Lock", -- 24259
+	"Garrote", -- 1330
+	"Silenced - Improved Counterspell", -- 18469, 55021
+	"Arcane Torrent", -- 50613, 28730, 25046
+	"Unstable Affliction", -- 43523, 31117
 }
 jungle.Silence_id = Silence_id
-
-local function Controlled_Root()
-	local tbl = {}
-	local id_tbl = Controlled_Root_id
-	for i = 1, #id_tbl do
-		local name, _, _, _, _, _, _, _ = GetSpellInfo(id_tbl[i])
-		table.insert(tbl, name)
-	end
-	return tbl
-end
-
-local function Controlled_Stun()
-	local tbl = {}
-	local id_tbl = Controlled_Stun_id
-	for i = 1, #id_tbl do
-		local name, _, _, _, _, _, _, _ = GetSpellInfo(id_tbl[i])
-		table.insert(tbl, name)	end
-	return tbl
-end
-
-local function Disorient()
-	local tbl = {}
-	local id_tbl = Disorient_id
-	for i = 1, #id_tbl do
-		local name, _, _, _, _, _, _, _ = GetSpellInfo(id_tbl[i])
-		table.insert(tbl, name)	end
-	return tbl
-end
-
-local function Incapacitate()
-	local tbl = {}
-	local id_tbl = Incapacitate_id
-	for i = 1, #id_tbl do
-		local name, _, _, _, _, _, _, _ = GetSpellInfo(id_tbl[i])
-		table.insert(tbl, name)	end
-	return tbl
-end
-
-local function Silence()	
-	local tbl = {}
-	local id_tbl = Silence_id
-	for i = 1, #id_tbl do
-		local name, _, _, _, _, _, _, _ = GetSpellInfo(id_tbl[i])
-		table.insert(tbl, name)	end
-	return tbl
-end
 
 --[[
 	{{}, {}, {}}

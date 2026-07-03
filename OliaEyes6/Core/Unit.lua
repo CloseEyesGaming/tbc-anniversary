@@ -26,15 +26,63 @@ end
 jungle.isCasting = isCasting
 
 
+local function checkPveInterrupt(_target)
+    local castName, _, _, startTime, endTime, _, _, notInterruptible = UnitCastingInfo(_target)
+    local channelName, _, _, _, _, _, notInterruptibleChannel = UnitChannelInfo(_target)
+
+    local activeSpell = castName or channelName
+    if not activeSpell then return false end
+
+    local spellsBigHealsInterrupt = jungle.spellsBigHealsInterrupt
+    local spellsImportantInterrupt = jungle.spellsImportantInterrupt
+    local spellsCcInterrupt = jungle.spellsCcInterrupt
+    
+    if spellsBigHealsInterrupt and spellsImportantInterrupt and spellsCcInterrupt then
+        local isNeeded = false
+        for _, name in ipairs(spellsBigHealsInterrupt) do
+            if name == activeSpell then isNeeded = true break end
+        end
+        if not isNeeded then
+            for _, name in ipairs(spellsImportantInterrupt) do
+                if name == activeSpell then isNeeded = true break end
+            end
+        end
+        if not isNeeded then
+            for _, name in ipairs(spellsCcInterrupt) do
+                if name == activeSpell then isNeeded = true break end
+            end
+        end
+        if not isNeeded then return false end
+    end
+
+    if (castName and not notInterruptible) or (channelName and not notInterruptibleChannel) then
+        local currentTime = GetTime() * 1000
+        if channelName then
+            return true
+        elseif castName and startTime and endTime and (endTime - startTime) > 0 then
+            local castProgress = (currentTime - startTime) / (endTime - startTime)
+            if castProgress > 0.8 then
+                return true
+            end
+        end
+    end
+    return false
+end
+jungle.checkPveInterrupt = checkPveInterrupt
+
+
+
 local function getEnemies()
 --[[
 	Get all enemies visible by visible nameplates
 ]]
+	local _, instanceType = IsInInstance()
 	local enemies = {}
 	local inRange, nameplates = 0, C_NamePlate.GetNamePlates()
    for index = 1, #nameplates do
       local unit = nameplates[index].namePlateUnitToken
-      if UnitCanAttack("player", unit) then
+      local hpPercent = UnitHealthMax(unit) > 0 and (UnitHealth(unit) / UnitHealthMax(unit) * 100) or 100
+      if UnitCanAttack("player", unit) and (instanceType == 'arena' or hpPercent >= 20) then
          if inRange >= 1 then return true end
          table.insert(enemies, unit)
       end
@@ -152,14 +200,16 @@ local function enemiesInRange(_spell_range_check)
 	get attackable enemies in range
 	_spell_range_check: spell to range check
 ]]--
+	local _, instanceType = IsInInstance()
 	local enemies = 0
 	local inRange, nameplates = 0, C_NamePlate.GetNamePlates()
 		
 	if instanceType ~= 'arena' then
 		for index = 1, #nameplates do
 		  local unit = nameplates[index].namePlateUnitToken
+		  local hpPercent = UnitHealthMax(unit) > 0 and (UnitHealth(unit) / UnitHealthMax(unit) * 100) or 100
 		  if UnitCanAttack("player", unit)
-		  and C_Spell.IsSpellInRange(_spell_range_check, unit) then
+		  and C_Spell.IsSpellInRange(_spell_range_check, unit) and hpPercent >= 20 then
 			 if inRange > 1 then return true end
 			 enemies = enemies + 1
 		  end
@@ -195,7 +245,10 @@ local function predictedLife(_target)
 	--[[Returns [0 - 1+] health level includes direct incoming heals]]
 	local life = 0
 	if UnitIsDeadOrGhost(_target)==false then
-		life = (UnitHealth(_target) + UnitGetIncomingHeals(_target))/UnitHealthMax(_target)
+		local maxHealth = UnitHealthMax(_target)
+		if maxHealth and maxHealth > 0 then
+			life = (UnitHealth(_target) + (UnitGetIncomingHeals(_target) or 0)) / maxHealth
+		end
 	end
 	return life
 end
@@ -205,8 +258,12 @@ jungle.predictedLife = predictedLife
 local function LifePercent(_target)
 --[[Returns [0 - 1+] health level]]
 	if UnitExists(_target) then
-		return UnitHealth(_target)/UnitHealthMax(_target)
+		local maxHealth = UnitHealthMax(_target)
+		if maxHealth and maxHealth > 0 then
+			return UnitHealth(_target) / maxHealth
+		end
 	end
+	return 0
 end
 jungle.LifePercent = LifePercent
 
@@ -317,3 +374,37 @@ local function IsFishing()
     return (unitType == "GameObject" and objectID == "35591")
 end
 jungle.IsFishing = IsFishing
+
+
+local function inMeleeRange(unit)
+    if not unit or not UnitExists(unit) then return false end
+    
+    local _, classToken = UnitClass("player")
+    local spells = {}
+    
+    if classToken == "WARRIOR" then
+        spells = {"Hamstring", "Bloodthirst", "Mortal Strike", "Shield Slam", "Pummel", "Revenge"}
+    elseif classToken == "ROGUE" then
+        spells = {"Sinister Strike", "Mutilate", "Backstab", "Eviscerate"}
+    elseif classToken == "DRUID" then
+        local form = GetShapeshiftForm()
+        if form == 1 then -- Bear Form
+            spells = {"Mangle", "Lacerate"}
+        elseif form == 3 then -- Cat Form
+            spells = {"Claw", "Mangle", "Shred"}
+        end
+    elseif classToken == "HUNTER" then
+        spells = {"Wing Clip", "Raptor Strike"}
+    end
+    
+    for i = 1, #spells do
+        local inRange = C_Spell.IsSpellInRange(spells[i], unit)
+        if inRange ~= nil then
+            return inRange
+        end
+    end
+    
+    -- Fallback to CheckInteractDistance
+    return CheckInteractDistance(unit, 3)
+end
+jungle.inMeleeRange = inMeleeRange

@@ -14,13 +14,17 @@ Hotkeys.MacroOverrides = {
     ["Cat Form"]       = "/cast !Cat Form",
     ["Dire Bear Form"] = "/cast !Dire Bear Form",
     ["Travel Form"]    = "/cast !Travel Form",
+    ["Pummel"]    = "/use [@mouseover,harm,stance:1/2,worn:shield][stance:1/2,worn:shield][@focus]Shield Bash\n/use [noworn:shield,nostance:3]Berserker Stance\n/use [mod,@focus,harm][@focus,exists,harm][@mouseover,harm][]Pummel",
+    ["Battle Stance"]    = "/cast Battle Stance\n/cast Charge",
+    ["Backstab"]    = "/cast [stealth] Pick Pocket\n/cast Backstab",
    
     -- Example: Stopcasting on specific spells if needed
     -- ["Healing Touch"] = "/stopcasting\n/cast Healing Touch",
 }
 
 -- Shared function that runs AFTER a button is clicked
-local function Debug_PostClick(self)
+local function Debug_PostClick(self, button, down)
+    if down == false then return end
     if Hotkeys.DebugMode then
         local spell = self.debugName or "Unknown"
         local key = self.debugKey or "Unknown"
@@ -43,6 +47,7 @@ end
 -- NOTE: Threads 1-6 are removed from here. They are hardcoded in CreateStaticBar.
 Hotkeys.GlobalDefaults = {
     { id = "Attack",      macro = "/startattack",        icon = "Interface\\Icons\\Inv_Sword_04" }, 
+    { id = "Stopattack",      macro = "/stopattack",        icon = "Interface\\Icons\\Inv_Sword_04" }, 
     { id = "Stopcasting", macro = "/stopcasting",        icon = "Interface\\Icons\\Spell_Shadow_Manaburn" },
     { id = "ClearFocus",  macro = "/clearfocus",         icon = "Interface\\Icons\\Spell_Shadow_SacrificialShield" },
     { id = "player",      macro = "/focus player",       icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
@@ -51,7 +56,24 @@ Hotkeys.GlobalDefaults = {
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "Fishing",     macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
-    { id = "Lure", macro = "/use Sharpened Fish Hook\n/use 16",		 icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Lure", macro = "/use Shiny Bauble\n/use Nightcrawlers\n/use Bright Baubles\n/use Flesh Eating Worm\n/use Sharpened Fish Hook\n/use Aquadynamic Fish Attractor\n/use 16", icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Trinkets", macro = "/use 13\n/use 14", icon = "Interface\\Icons\\INV_Jewelry_TrinketPVP_01" },
+    { id = "Desync", macro = "/cleartarget[exists, harm]\n/targetlasttarget[noexists]\n/startattack[exists, harm]", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },
+    -- { id = "Desync", macro = "/stopattack\n/startattack", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },
+
+    -- Follower Support Macros
+    { id = "Mount", macro = "/cancelform [outdoors,nocombat]\n/cast [outdoors,nocombat] Reins of the Striped Nightsaber", icon = "Interface\\Icons\\Spell_Nature_Swiftness" },
+    { id = "Follow", macro = "/follow target", icon = "Interface\\Icons\\Ability_Rogue_Sprint" },
+    { id = "StopFollow", macro = "/follow player", icon = "Interface\\Icons\\Ability_Rogue_Sprint" },
+    { id = "Food", macro = "/use Roasted Quail", icon = "Interface\\Icons\\INV_Misc_Food_10" },
+    { id = "Drink", macro = "/use Sweet Nectar", icon = "Interface\\Icons\\INV_Drink_05" },
+
+    -- Warrior Weapon Swap Macros (updated dynamically on login/talent change)
+    { id = "Equip2H",     macro = "/eq [noworn:two-hand] placeholder",                                                      icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipDW",     macro = "/equipslot 16 placeholder\n/equipslot 17 placeholder",                                   icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipShield", macro = "/eq [noworn:shield] placeholder\n/equipslot [noworn:one-hand] 16 placeholder",            icon = "Interface\\Icons\\INV_Shield_05" },
+    { id = "EquipFastOffHand", macro = "/equipslot 17 placeholder",                                                         icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipSlowOffHand", macro = "/equipslot 17 placeholder",                                                         icon = "Interface\\Icons\\INV_Sword_04" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -239,6 +261,7 @@ Hotkeys.ClassSpells = {
         { id = "Summon Felguard", icon = "Interface\\Icons\\Spell_Shadow_SummonFelGuard" },
     },
     ["ROGUE"] = {
+        { id = "Pick Pocket", icon = "Interface\\Icons\\INV_Misc_Bag_11" },
         { id = "Sinister Strike", icon = "Interface\\Icons\\Spell_Shadow_RitualOfSacrifice" },
         { id = "Eviscerate", icon = "Interface\\Icons\\Ability_Rogue_Eviscerate" },
         { id = "Kidney Shot", icon = "Interface\\Icons\\Ability_Rogue_KidneyShot" },
@@ -285,6 +308,28 @@ Hotkeys.ClassSpells = {
         { id = "Commanding Shout", icon = "Interface\\Icons\\Ability_Warrior_RallyingCry" },
         { id = "Demoralizing Shout", icon = "Interface\\Icons\\Ability_Warrior_WarCry" },
         { id = "Spell Reflection", icon = "Interface\\Icons\\Ability_Warrior_ShieldReflection" },
+        { id = "Thunder Clap", icon = "Interface\\Icons\\Spell_Nature_ThunderClap" },
+        { id = "Shield Block", icon = "Interface\\Icons\\Ability_Defend" },
+        { id = "Taunt", icon = "Interface\\Icons\\Spell_Nature_Reincarnation" },
+        { id = "Bloodrage", icon = "Interface\\Icons\\Ability_Racial_BloodRage" },
+        { id = "Challenging Shout", icon = "Interface\\Icons\\Ability_BullRush" },
+        { id = "Defensive Stance", icon = "Interface\\Icons\\Ability_Warrior_DefensiveStance" },
+        { id = "Battle Stance", icon = "Interface\\Icons\\Ability_Warrior_OffensiveStance" },
+        { id = "Berserker Stance", icon = "Interface\\Icons\\Ability_Racial_Avatar" },
+        { id = "Berserker Rage", icon = "Interface\\Icons\\Spell_Nature_AncestralGuardian" },
+        { id = "Piercing Howl", icon = "Interface\\Icons\\Spell_Shadow_DeathScream" },
+        { id = "Hamstring", icon = "Interface\\Icons\\Ability_ShockWave" },
+        { id = "Rend", icon = "Interface\\Icons\\Ability_Gouge" },
+        { id = "Mocking Blow", icon = "Interface\\Icons\\Ability_Warrior_PunishingBlow" },
+        { id = "Concussion Blow", icon = "Interface\\Icons\\Ability_ThunderBolt" },
+        { id = "Sweeping Strikes", icon = "Interface\\Icons\\Ability_Rogue_SliceDice" },
+        { id = "Death Wish", icon = "Interface\\Icons\\Spell_Shadow_DeathPact" },
+        { id = "Recklessness", icon = "Interface\\Icons\\Ability_CriticalStrike" },
+        { id = "Retaliation", icon = "Interface\\Icons\\Ability_Warrior_Challange" },
+        { id = "Shield Wall", icon = "Interface\\Icons\\Ability_Warrior_ShieldWall" },
+        { id = "Rampage", icon = "Interface\\Icons\\Ability_Warrior_Rampage" },
+        { id = "Victory Rush", icon = "Interface\\Icons\\Ability_Warrior_Devastate" },
+		{ id = "Slam", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },
     },
     ["HUNTER"] = {
         { id = "Steady Shot", icon = "Interface\\Icons\\Ability_Hunter_SteadyShot" },
@@ -371,7 +416,13 @@ Hotkeys.Pool_Targeting = {
     
     
     "ALT-I", "ALT-J", "ALT-K", "ALT-L", "ALT-O", "ALT-U", "ALT-Y",
-    "ALT-[", "ALT-]", "ALT-;", "ALT-'", "ALT-,", "ALT-.", "ALT-BACKSPACE"
+    "ALT-[", "ALT-]", "ALT-;", "ALT-'", "ALT-,", "ALT-.", "ALT-BACKSPACE", "ALT-B",
+    "ALT-P", "ALT-H",
+
+    "CTRL-B", "CTRL-P", "CTRL-H",
+
+    -- Weapon Equip Keys (3)
+    "CTRL-N", "ALT-N", "ALT-M"
 }
 
 -- ----------------------------------------------------------------------------
@@ -431,7 +482,7 @@ function Hotkeys:CreateStaticBar()
         
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
         btn:SetSize(btnSize, btnSize)
-        btn:RegisterForClicks("AnyDown")
+        btn:RegisterForClicks("AnyUp", "AnyDown")
         
         -- Layout (Simple grid, threads separate)
         if forcedKey then
@@ -544,7 +595,7 @@ function Hotkeys:CreateDynamicBar()
         local btnName = "CA_Dynamic_" .. keyIndex
         local btn = CreateFrame("Button", btnName, parent, "SecureActionButtonTemplate")
         btn:SetSize(btnSize, btnSize)
-        btn:RegisterForClicks("AnyDown")
+        btn:RegisterForClicks("AnyUp", "AnyDown")
 
         local index = keyIndex - 1
         local row = math.floor(index / columns)
@@ -627,6 +678,76 @@ function Hotkeys:ToggleDebug()
     if self.DynamicBarFrame then self.DynamicBarFrame:SetAlpha(alpha) end
 end
 
+local last2H, last1H, lastShield, lastMH, lastOH, lastThird, lastFastOH, lastSlowOH
+function Hotkeys:UpdateEquipMacros()
+    if InCombatLockdown() then return end
+    local _, engClass = UnitClass('player')
+    if engClass ~= "WARRIOR" then return end
+    if not self.StaticButtons then return end
+    
+    local best2H = jungle.GetBest2HWeapon and jungle.GetBest2HWeapon() or nil
+    local best1H = jungle.GetBest1HWeapon and jungle.GetBest1HWeapon() or nil
+    local bestShield = jungle.GetBestShield and jungle.GetBestShield() or nil
+    local bestMH, bestOH, bestThird
+    if jungle.GetBestDWWeapons then
+        bestMH, bestOH, bestThird = jungle.GetBestDWWeapons()
+    end
+    
+    local fastOH = nil
+    local slowOH = nil
+    if bestOH and bestThird and jungle.GetItemSpeed then
+        local speedOH = jungle.GetItemSpeed(bestOH) or 2.0
+        local speedThird = jungle.GetItemSpeed(bestThird) or 2.0
+        if speedOH <= speedThird then
+            fastOH = bestOH
+            slowOH = bestThird
+        else
+            fastOH = bestThird
+            slowOH = bestOH
+        end
+    elseif bestOH then
+        fastOH = bestOH
+        slowOH = bestOH
+    end
+
+    for _, btnData in ipairs(self.StaticButtons) do
+        if btnData.id == "Equip2H" and best2H then
+            btnData.frame:SetAttribute("macrotext", "/eq [noworn:two-hand] " .. best2H)
+        elseif btnData.id == "EquipDW" and bestMH then
+            local macro = "/equipslot 16 " .. bestMH
+            if bestOH then
+                macro = macro .. "\n/equipslot 17 " .. bestOH
+            end
+            btnData.frame:SetAttribute("macrotext", macro)
+        elseif btnData.id == "EquipShield" then
+            local parts = {}
+            if bestShield then
+                table.insert(parts, "/eq [noworn:shield] " .. bestShield)
+            end
+            if best1H then
+                table.insert(parts, "/equipslot [noworn:one-hand] 16 " .. best1H)
+            end
+            if #parts > 0 then
+                btnData.frame:SetAttribute("macrotext", table.concat(parts, "\n"))
+            end
+        elseif btnData.id == "EquipFastOffHand" and fastOH then
+            btnData.frame:SetAttribute("macrotext", "/equipslot 17 " .. fastOH)
+        elseif btnData.id == "EquipSlowOffHand" and slowOH then
+            btnData.frame:SetAttribute("macrotext", "/equipslot 17 " .. slowOH)
+        end
+    end
+    
+    if best2H ~= last2H or best1H ~= last1H or bestShield ~= lastShield or bestMH ~= lastMH or bestOH ~= lastOH or bestThird ~= lastThird or fastOH ~= lastFastOH or slowOH ~= lastSlowOH then
+        last2H, last1H, lastShield, lastMH, lastOH, lastThird, lastFastOH, lastSlowOH = best2H, best1H, bestShield, bestMH, bestOH, bestThird, fastOH, slowOH
+        local function item(name) return name and ("|cFF00CCFF" .. name .. "|r") or "|cFF666666none|r" end
+        print("|cFF00FF00[Olia]|r |cFFFFFFFFEquip macros updated:|r")
+        print("  |cFFFFD700[2H]|r " .. item(best2H) .. "    |cFFFFD700[1H]|r " .. item(best1H))
+        print("  |cFFFFD700[DW]|r " .. item(bestMH) .. " |cFF888888/|r " .. item(bestOH) .. (bestThird and (" (3rd: " .. item(bestThird) .. ")") or ""))
+        print("  |cFFFFD700[Shield]|r " .. item(bestShield))
+        print("  |cFFFFD700[OH Fast]|r " .. item(fastOH) .. " |cFFFFD700[OH Slow]|r " .. item(slowOH))
+    end
+end
+
 function Hotkeys:GenerateColor(str)
     if not jungle.Color then return "000000" end
     local colorObj = jungle.Color:new()
@@ -686,9 +807,26 @@ Hotkeys:CreateDynamicBar()
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:SetScript("OnEvent", function() 
-    OliaDebugLog = {} 
-    Hotkeys:DumpBindings()
-    Hotkeys:ApplyBindings()
-    print("|cFF00FF00[Olia]|r System Ready: Logs Cleared & Bindings Exported.")
+f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+f:RegisterEvent("BAG_UPDATE_DELAYED")
+f:SetScript("OnEvent", function(self, event) 
+    if event == "PLAYER_ENTERING_WORLD" then
+        OliaDebugLog = {} 
+        Hotkeys:DumpBindings()
+        Hotkeys:ApplyBindings()
+        print("|cFF00FF00[Olia]|r System Ready: Logs Cleared & Bindings Exported.")
+    end
+    
+    if event == "BAG_UPDATE_DELAYED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+        if not InCombatLockdown() then
+            Hotkeys:UpdateEquipMacros()
+        end
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Update equip macros (delayed to ensure item data is loaded)
+        C_Timer.After(1, function()
+            if not InCombatLockdown() then
+                Hotkeys:UpdateEquipMacros()
+            end
+        end)
+    end
 end)

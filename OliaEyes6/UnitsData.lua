@@ -46,75 +46,82 @@ local function InitUnitTable()
     }
 end
 
+local function tableSetInactive(cat)
+    for _, tbl in pairs(cat) do
+        for _, aura in pairs(tbl) do
+            aura.isActive = false
+        end
+    end
+end
+
 local function ResetUnitCache(t)
-    -- Efficiently wipe sub-tables without deleting the main table
-    -- 1. Wipe Debuffs
-    for _, v in pairs(t.auras.debuffs) do
-        wipe(v)
-    end
-    -- 2. Wipe Buffs
-    for _, v in pairs(t.auras.buffs) do
-        wipe(v)
-    end
+    tableSetInactive(t.auras.debuffs)
+    tableSetInactive(t.auras.buffs)
 end
 
 --------------------------------------------------------------------------------
 -- PARSING HELPERS
 --------------------------------------------------------------------------------
 
+local function injectAura(cat, name, count, expirationTime, source)
+    if not cat[name] then cat[name] = {} end
+    cat[name].count = count
+    cat[name].expirationTime = expirationTime
+    cat[name].source = source
+    cat[name].isActive = true
+end
+
 local function debuffParse(unit)
-    -- Note: unitCache[unit] is guaranteed to exist and be clean here
     local data = unitCache[unit].auras.debuffs
     
 	AuraUtil.ForEachAura(unit, "HARMFUL", nil, function(debuff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
 		if IsInList(debuff, jungle.unitIgnoreDebuffs) then
-			data.unitIgnore[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.unitIgnore, debuff, count, expirationTime, source)
 		end	
 		if dispelType == 'Magic' then
-			data.magic[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.magic, debuff, count, expirationTime, source)
 		end						
 		if dispelType == 'Curse' then
-			data.curse[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.curse, debuff, count, expirationTime, source)
 		end						
 		if dispelType == 'Poison' then
-			data.poison[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.poison, debuff, count, expirationTime, source)
 		end						
 		if dispelType == 'Disease' then
-			data.disease[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.disease, debuff, count, expirationTime, source)
 		end						
 		if IsInList(debuff, jungle.slowDebuffs) then
-			data.slow[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.slow, debuff, count, expirationTime, source)
 		end
 		if IsInList(debuff, jungle.rootDebuffs) then
-			data.root[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.root, debuff, count, expirationTime, source)
 		end
 		if IsInList(debuff, jungle.toFreedomDebuffs) then
-			data.freedom[debuff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.freedom, debuff, count, expirationTime, source)
 		end
 	end)
 end
 
 local function buffParse(unit)
-    -- Note: unitCache[unit] is guaranteed to exist and be clean here
     local data = unitCache[unit].auras.buffs
 
 	AuraUtil.ForEachAura(unit, "HELPFUL", nil, function(buff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
 		if source == 'player' then
-				data.player[buff] = { count = count, expirationTime = expirationTime, source = source }
-				if buff == 'Beacon of Light' then
-					BEACONED_unit = unit
-				end
-			else
-				data.nonplayer[buff] = { count = count, expirationTime = expirationTime, source = source }
+            injectAura(data.player, buff, count, expirationTime, source)
+            if buff == 'Beacon of Light' then
+                BEACONED_unit = unit
+            end
+        else
+            injectAura(data.nonplayer, buff, count, expirationTime, source)
 		end
 		if IsInList(buff, jungle.slowImmunityBuffs) then
-			data.slowImmunity[buff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.slowImmunity, buff, count, expirationTime, source)
 		end
 		if IsInList(buff, jungle.unitIgnoreBuffCaster) then
-			data.unitIgnoreIfYouCaster[buff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.unitIgnoreIfYouCaster, buff, count, expirationTime, source)
 		end
 		if IsInList(buff, jungle.unitIgnoreBuffPhys) then
-			data.unitIgnoreIfYouPhys[buff] = { count = count, expirationTime = expirationTime, source = source }
+			injectAura(data.unitIgnoreIfYouPhys, buff, count, expirationTime, source)
 		end
 	end)
 end
@@ -162,9 +169,9 @@ local function auraParser(unit)
     local anyBuffs = u.auras.buffs.nonplayer
 
     -- Calculate base score
-    if pBuffs['Lifebloom'] then score = score + pBuffs['Lifebloom'].count end
-    if pBuffs['Rejuvenation'] or anyBuffs['Rejuvenation'] then score = score + 1 end
-    if pBuffs['Regrowth'] or anyBuffs['Regrowth'] then score = score + 1 end
+    if pBuffs['Lifebloom'] and pBuffs['Lifebloom'].isActive then score = score + pBuffs['Lifebloom'].count end
+    if (pBuffs['Rejuvenation'] and pBuffs['Rejuvenation'].isActive) or (anyBuffs['Rejuvenation'] and anyBuffs['Rejuvenation'].isActive) then score = score + 1 end
+    if (pBuffs['Regrowth'] and pBuffs['Regrowth'].isActive) or (anyBuffs['Regrowth'] and anyBuffs['Regrowth'].isActive) then score = score + 1 end
 
     -- [NEW] VIRTUAL HEALTH CALIBRATION
     -- Active tanks get 1% per HoT, everyone else gets 4% per HoT
@@ -204,7 +211,7 @@ local function cacheUnitData(unit, _identificator)
 	u.guid = UnitGUID(unit) -- [NEW] Cache the GUID for the tracker
 	u.isMe = (UnitName(unit) == UnitName('player'))
 	u.isInCombat = UnitAffectingCombat(unit)
-	u.currLife = jungle.LifePercent(unit)
+	u.currLife = jungle.LifePercent(unit) or 0
 	u.threatStatus = UnitThreatSituation(unit)
 	u.isTank = (UnitGroupRolesAssigned(unit) == 'TANK') or (GetPartyAssignment("MAINTANK", unit) == true)
     
@@ -236,8 +243,11 @@ local function clearCacheData(identificator)
   end
 end
 
+local cacheCounter = 0
 local function cacheEveryUnit(_identificator)
-    local identificator = math.random(100, 999)
+    cacheCounter = cacheCounter + 1
+    if cacheCounter > 1000000 then cacheCounter = 1 end
+    local identificator = cacheCounter
     local groupType
     local player = false 
     local _, instanceType = IsInInstance()
@@ -350,7 +360,7 @@ local function isUnitAvailable(_unit)
 
 	if UnitExists(_unit) 
 	and unitCache[_unit]
-	and next(unitCache[_unit].auras.debuffs.unitIgnore)==nil
+	and jungle.countEntries(unitCache[_unit].auras.debuffs.unitIgnore) == 0
 	then
 		if UnitCanAttack('player', _unit) and not jungle.isTargetInLos(_unit) then
 			-- CASTER / HEALER LOGIC
@@ -360,7 +370,7 @@ local function isUnitAvailable(_unit)
 				or (engClass == "PALADIN" and mySpec == 1) -- Holy
 				or (engClass == "SHAMAN" and (mySpec == 1 or mySpec == 3)) -- Ele / Resto
 			) 
-			and next(unitCache[_unit].auras.buffs.unitIgnoreIfYouCaster) == nil then
+			and jungle.countEntries(unitCache[_unit].auras.buffs.unitIgnoreIfYouCaster) == 0 then
 				return true
 			
 			-- PHYSICAL LOGIC
@@ -370,7 +380,7 @@ local function isUnitAvailable(_unit)
 				or (engClass == "PALADIN" and (mySpec == 2 or mySpec == 3)) -- Prot / Ret
 				or (engClass == "SHAMAN" and mySpec == 2) -- Enh
 			) 
-			and next(unitCache[_unit].auras.buffs.unitIgnoreIfYouPhys) == nil then
+			and jungle.countEntries(unitCache[_unit].auras.buffs.unitIgnoreIfYouPhys) == 0 then
 				return true
 			end
 		end
@@ -401,7 +411,7 @@ local function bloomFriendsCount(_life)
 	local life = _life or 1
 	for _, unitData in pairs(unitCache) do
 		if unitData.currLife <= life
-		and unitData.auras.buffs.player['Lifebloom'] then
+		and unitData.auras.buffs.player['Lifebloom'] and unitData.auras.buffs.player['Lifebloom'].isActive then
 			count = count + 1
 		end
 	end
@@ -422,11 +432,11 @@ local function unitCacheBuff(_unit, _aura, _PLAYER, _expired, _counts)
     local buffList = _PLAYER and buffs.player or buffs.nonplayer
     
     local auraData = buffList[_aura]
-    if not _PLAYER and not auraData then
+    if not _PLAYER and (not auraData or not auraData.isActive) then
         auraData = buffs.player[_aura]
     end
 
-    if auraData then
+    if auraData and auraData.isActive then
         -- FACT: expirationTime is 0 for buffs that don't expire (until used or die)
         local isInfinite = (auraData.expirationTime == 0)
         local remaining = isInfinite and 99999 or (auraData.expirationTime - GetTime())
@@ -458,12 +468,14 @@ local function unitCacheDebuff(_friend, _aura, _expired, _counts)
         if catTable and catTable[_aura] then
             local d = catTable[_aura]
             
-            -- 2. INFINITE CHECK: expirationTime is 0 for permanent debuffs
-            local isInfinite = (d.expirationTime == 0)
-            local remaining = isInfinite and 99999 or (d.expirationTime - GetTime())
+            if d and d.isActive then
+                -- 2. INFINITE CHECK: expirationTime is 0 for permanent debuffs
+                local isInfinite = (d.expirationTime == 0)
+                local remaining = isInfinite and 99999 or (d.expirationTime - GetTime())
 
-            if remaining >= _expired and d.count >= _counts then
-                return true
+                if remaining >= _expired and d.count >= _counts then
+                    return true
+                end
             end
         end
     end
@@ -474,7 +486,7 @@ jungle.unitCacheDebuff = unitCacheDebuff
 local function countEntries(table)
   local count = 0
   for k, v in pairs(table) do
-    if type(v) == 'table' then count = count + 1 end
+    if type(v) == 'table' and v.isActive then count = count + 1 end
   end
   return count
 end
