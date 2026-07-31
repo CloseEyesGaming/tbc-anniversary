@@ -3,8 +3,44 @@ local Jungle, jungle = ...
 --------------------------------------------------------------------------------
 -- AURA CACHING ENGINE (One-Pass)
 --------------------------------------------------------------------------------
--- Cache Structure: jungle.auraCache[unitGUID] = { tick = 105, helpful = {Name={...}}, harmful = {...} }
+-- Cache Structure:
+-- jungle.auraCache[unitGUID] = {
+--     helpful = { Name = {...} },
+--     harmful = { Name = {...} },
+--     helpfulState = { initialized, dirty, nextExpiry },
+--     harmfulState = { initialized, dirty, nextExpiry },
+-- }
 jungle.auraCache = {}
+
+local function NewFilterState()
+    return {
+        initialized = false,
+        dirty = true,
+        nextExpiry = nil,
+    }
+end
+
+local function NewAuraCache()
+    return {
+        tick = -1, -- Retained for compatibility with existing cache inspection.
+        helpful = {},
+        harmful = {},
+        helpfulState = NewFilterState(),
+        harmfulState = NewFilterState(),
+    }
+end
+
+local function InvalidateAuraCache(unit)
+    if not unit then return end
+
+    local unitGUID = UnitGUID(unit)
+    local cache = unitGUID and jungle.auraCache[unitGUID]
+    if cache then
+        cache.helpfulState.dirty = true
+        cache.harmfulState.dirty = true
+    end
+end
+jungle.InvalidateAuraCache = InvalidateAuraCache
 
 local function ScanAuras(unit, filter)
     -- Safety Checks
@@ -14,47 +50,46 @@ local function ScanAuras(unit, filter)
 
     -- Initialize or Retrieve Cache Entry
     if not jungle.auraCache[unitGUID] then
-        jungle.auraCache[unitGUID] = { tick = -1, helpful = {}, harmful = {} }
+        jungle.auraCache[unitGUID] = NewAuraCache()
     end
 
     local cache = jungle.auraCache[unitGUID]
+    local normalizedFilter = (filter == "HELPFUL") and "HELPFUL" or "HARMFUL"
+    local db = (normalizedFilter == "HELPFUL") and cache.helpful or cache.harmful
+    local state = (normalizedFilter == "HELPFUL") and cache.helpfulState or cache.harmfulState
+    local now = GetTime()
+    local expired = state.nextExpiry and now >= state.nextExpiry
 
-    -- HIT: If scanned this tick, return cached data immediately
-    if cache.tick == jungle.currentTick then
+    -- Event-invalidated hit: unchanged finite and permanent auras remain reusable
+    -- across frames. Expiry is still checked synchronously before each query.
+    if state.initialized and not state.dirty and not expired then
         return cache
     end
 
-    -- MISS: Reset and Rescan (The only expensive part, runs once per unit per frame)
+    -- Refresh only the requested filter. UnitsData invalidates this cache from
+    -- UNIT_AURA and from its staggered missed-event audit.
     cache.tick = jungle.currentTick
-    wipe(cache.helpful)
-    wipe(cache.harmful)
-
-    -- Scan HELPFUL (Buffs)
+    wipe(db)
+    local nextExpiry
     for i = 1, 40 do
-        local name, icon, count, debuffType, duration, expirationTime, source, _, _, spellId = UnitAura(unit, i, "HELPFUL")
+        local name, icon, count, debuffType, duration, expirationTime, source, _, _, spellId = UnitAura(unit, i, normalizedFilter)
         if not name then break end
-        cache.helpful[name] = { 
-            count = count, 
-            expiration = expirationTime, 
-            source = source, 
+        db[name] = {
+            count = count,
+            expiration = expirationTime,
+            source = source,
             type = debuffType,
-            id = spellId 
-        }
-    end
-
-    -- Scan HARMFUL (Debuffs)
-    for i = 1, 40 do
-        local name, icon, count, debuffType, duration, expirationTime, source, _, _, spellId = UnitAura(unit, i, "HARMFUL")
-        if not name then break end
-        cache.harmful[name] = { 
-            count = count, 
-            expiration = expirationTime, 
-            source = source, 
-            type = debuffType, 
             id = spellId
         }
+        if expirationTime and expirationTime > 0
+        and (not nextExpiry or expirationTime < nextExpiry) then
+            nextExpiry = expirationTime
+        end
     end
 
+    state.initialized = true
+    state.dirty = false
+    state.nextExpiry = nextExpiry
     return cache
 end
 

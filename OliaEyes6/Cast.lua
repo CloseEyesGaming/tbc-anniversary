@@ -6,33 +6,49 @@ jungle.Cast = Cast
 
 -- Pre-allocate helpers ONCE
 local colorHelper = jungle.Color:new()
-local pixelHelper = jungle.Pixel:new({0,0,0}, 1) 
+local pixelColor = {0, 0, 0}
+local pixelHelper = jungle.Pixel:new(pixelColor, 1) 
+
+local function GetFocusUnit(target)
+    if target == 'target'
+    and UnitExists('softenemy')
+    and UnitIsUnit('target', 'softenemy') then
+        return 'softenemy'
+    end
+    return target
+end
 
 function Cast:CastSpell(spell, target, pix)
     if pix then pixelHelper.size = pix end
 
     -- Prepare variables for decision
-    local finalColor = nil
-    local finalAction = ""
+    local r, g, b
+    local debugEnabled = jungle.Debug and jungle.Debug.enabled
+    local finalAction
+    local focusUnit = GetFocusUnit(target)
 
     if not UnitExists('focus') or not UnitIsUnit('focus', target) then
         -- Logic: Set Focus Color
-        finalColor = colorHelper:makeColor(target)
-        finalAction = "Set Focus: " .. (target or "?")
+        r, g, b = colorHelper:getRGB(focusUnit)
+        if debugEnabled then
+            finalAction = "Set Focus: " .. (focusUnit or "?")
+        end
     elseif UnitIsUnit('focus', target) then
         -- Logic: Cast Spell Color
-        finalColor = colorHelper:makeColor(spell)
-        finalAction = "Cast: " .. (spell or "?")
+        r, g, b = colorHelper:getRGB(spell)
+        if debugEnabled then
+            finalAction = "Cast: " .. (spell or "?")
+        end
     end
 
     -- [DEBUG HOOK] Send data to the fancy panel
-    if jungle.Debug then
-        jungle.Debug:UpdateCast(finalAction, target, finalColor)
+    if debugEnabled then
+        jungle.Debug:UpdateCast(finalAction, target, {r, g, b})
     end
 
     -- Execute
-    if finalColor then
-        pixelHelper.color = finalColor
+    if r then
+        pixelColor[1], pixelColor[2], pixelColor[3] = r, g, b
         return pixelHelper:set()
     end
 end
@@ -40,22 +56,23 @@ end
 function Cast:Reset(pix)
     if pix then pixelHelper.size = pix end
     
-    local defColor
-    local statusText = "Idle"
+    local r, g, b
+    local debugEnabled = jungle.Debug and jungle.Debug.enabled
+    local statusText
 
     if UnitExists('focus') then
-        defColor = colorHelper:makeColor('clearfocus')
-        statusText = "Clear Focus"
+        r, g, b = colorHelper:getRGB('clearfocus')
+        if debugEnabled then statusText = "Clear Focus" end
     else
-        defColor = colorHelper:makeColor('dummyColor')
-        statusText = "Idle (Black)"
+        r, g, b = colorHelper:getRGB('dummyColor')
+        if debugEnabled then statusText = "Idle (Black)" end
     end
     
     -- [DEBUG HOOK] Update panel to show idle state
-    if jungle.Debug then
-        jungle.Debug:UpdateCast(statusText, "None", defColor)
+    if debugEnabled then
+        jungle.Debug:UpdateCast(statusText, "None", {r, g, b})
     end
     
-    pixelHelper.color = defColor
+    pixelColor[1], pixelColor[2], pixelColor[3] = r, g, b
     return pixelHelper:set()
 end

@@ -1,5 +1,50 @@
 local Jungle, jungle = ...
 
+local VALID_PLAYER_CLASSES = {
+    WARRIOR = true, PALADIN = true, HUNTER = true,
+    ROGUE = true, PRIEST = true, SHAMAN = true,
+    MAGE = true, WARLOCK = true, DRUID = true,
+}
+local cachedPlayerClass
+local function GetPlayerClass()
+    if cachedPlayerClass then
+        return cachedPlayerClass
+    end
+
+    local _, classToken = UnitClass("player")
+    if VALID_PLAYER_CLASSES[classToken] then
+        cachedPlayerClass = classToken
+    end
+    return classToken
+end
+jungle.GetPlayerClass = GetPlayerClass
+
+local function GetNameplateUnitToken(nameplate, index)
+    if not nameplate then return nil end
+
+    local unit = nameplate.namePlateUnitToken
+        or nameplate.unitToken
+        or nameplate.unit
+        or nameplate.displayedUnit
+
+    local unitFrame = nameplate.UnitFrame
+    if not unit and unitFrame then
+        unit = unitFrame.unit
+            or unitFrame.unitToken
+            or unitFrame.displayedUnit
+    end
+
+    if not unit and index then
+        unit = "nameplate" .. index
+    end
+
+    if unit and UnitExists(unit) then
+        return unit
+    end
+    return nil
+end
+jungle.GetNameplateUnitToken = GetNameplateUnitToken
+
 local function isCasting(_target, timeToEnd, spell)
     --[[
         Checks if a unit is currently casting an interruptible spell.
@@ -80,16 +125,178 @@ local function getEnemies()
 	local enemies = {}
 	local inRange, nameplates = 0, C_NamePlate.GetNamePlates()
    for index = 1, #nameplates do
-      local unit = nameplates[index].namePlateUnitToken
-      local hpPercent = UnitHealthMax(unit) > 0 and (UnitHealth(unit) / UnitHealthMax(unit) * 100) or 100
-      if UnitCanAttack("player", unit) and (instanceType == 'arena' or hpPercent >= 20) then
-         if inRange >= 1 then return true end
-         table.insert(enemies, unit)
+      local unit = GetNameplateUnitToken(nameplates[index], index)
+      if unit and UnitCanAttack("player", unit) then
+         local unitHPMax = UnitHealthMax(unit)
+         local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
+         if instanceType == 'arena' or hpPercent >= 20 then
+            if inRange >= 1 then return true end
+            table.insert(enemies, unit)
+         end
       end
    end
    return enemies
 end
 jungle.getEnemies = getEnemies
+
+local ARENA_UNITS = {}
+local ARENA_TARGET_UNITS = {}
+for i = 1, 5 do
+	ARENA_UNITS[i] = 'arena' .. i
+	ARENA_TARGET_UNITS[i] = ARENA_UNITS[i] .. 'target'
+end
+
+local arenaPressureTick = -1
+local arenaPressureByGUID = {}
+local arenaPressureRepresentative = {}
+
+local function CountArenaTargetLegacy(target)
+	local enemies = 0
+	for i = 1, 5 do
+		if UnitExists(ARENA_UNITS[i])
+		and UnitIsUnit(ARENA_TARGET_UNITS[i], target) then
+			enemies = enemies + 1
+		end
+	end
+	return enemies
+end
+
+local function GetArenaTargetPressure(target)
+	local currentTick = jungle.currentTick or 0
+	if arenaPressureTick ~= currentTick then
+		arenaPressureTick = currentTick
+		wipe(arenaPressureByGUID)
+		wipe(arenaPressureRepresentative)
+
+		for i = 1, 5 do
+			if UnitExists(ARENA_UNITS[i]) then
+				local targetUnit = ARENA_TARGET_UNITS[i]
+				local targetGUID = UnitGUID(targetUnit)
+				if targetGUID then
+					arenaPressureByGUID[targetGUID] = (arenaPressureByGUID[targetGUID] or 0) + 1
+					if not arenaPressureRepresentative[targetGUID] then
+						arenaPressureRepresentative[targetGUID] = targetUnit
+					end
+				end
+			end
+		end
+	end
+
+	local targetGUID = UnitGUID(target)
+	if not targetGUID then
+		return CountArenaTargetLegacy(target)
+	end
+
+	local pressure = arenaPressureByGUID[targetGUID]
+	if not pressure then
+		return 0
+	end
+
+	local representative = arenaPressureRepresentative[targetGUID]
+	if representative and UnitIsUnit(representative, target) then
+		return pressure
+	end
+	return CountArenaTargetLegacy(target)
+end
+
+local NAMEPLATE_TARGET_UNITS = {}
+for i = 1, 40 do
+	local unit = 'nameplate' .. i
+	NAMEPLATE_TARGET_UNITS[unit] = unit .. 'target'
+end
+
+local nameplatePressureTick = -1
+local nameplatePressureByGUID = {}
+local nameplatePressureRepresentative = {}
+local nameplatePressureHasMissingGUID = false
+
+local function GetNameplateTargetUnit(unit)
+	local targetUnit = NAMEPLATE_TARGET_UNITS[unit]
+	if not targetUnit then
+		targetUnit = unit .. 'target'
+		NAMEPLATE_TARGET_UNITS[unit] = targetUnit
+	end
+	return targetUnit
+end
+
+local function CountNameplateTargetLegacy(target)
+	local enemies = 0
+	local nameplates = C_NamePlate.GetNamePlates()
+	for i = 1, #nameplates do
+		local unit = GetNameplateUnitToken(nameplates[i], i)
+		if unit
+		and UnitCanAttack('player', unit)
+		and UnitIsUnit(GetNameplateTargetUnit(unit), target) then
+			enemies = enemies + 1
+		end
+	end
+	return enemies
+end
+
+local function GetNameplateTargetPressure(target)
+	local currentTick = jungle.currentTick or 0
+	if nameplatePressureTick ~= currentTick then
+		nameplatePressureTick = currentTick
+		wipe(nameplatePressureByGUID)
+		wipe(nameplatePressureRepresentative)
+		nameplatePressureHasMissingGUID = false
+
+		local nameplates = C_NamePlate.GetNamePlates()
+		for i = 1, #nameplates do
+			local unit = GetNameplateUnitToken(nameplates[i], i)
+			if unit and UnitCanAttack('player', unit) then
+				local targetUnit = GetNameplateTargetUnit(unit)
+				local targetGUID = UnitGUID(targetUnit)
+				if targetGUID then
+					nameplatePressureByGUID[targetGUID] = (nameplatePressureByGUID[targetGUID] or 0) + 1
+					if not nameplatePressureRepresentative[targetGUID] then
+						nameplatePressureRepresentative[targetGUID] = targetUnit
+					end
+				elseif UnitExists(targetUnit) then
+					nameplatePressureHasMissingGUID = true
+				end
+			end
+		end
+	end
+
+	if nameplatePressureHasMissingGUID then
+		return CountNameplateTargetLegacy(target)
+	end
+
+	local targetGUID = UnitGUID(target)
+	if not targetGUID then
+		return CountNameplateTargetLegacy(target)
+	end
+
+	local pressure = nameplatePressureByGUID[targetGUID]
+	if not pressure then
+		return 0
+	end
+
+	local representative = nameplatePressureRepresentative[targetGUID]
+	if representative and UnitIsUnit(representative, target) then
+		return pressure
+	end
+	return CountNameplateTargetLegacy(target)
+end
+
+local function IsPhysicalPressureTarget(target, classIndex)
+	return classIndex == 1
+		or classIndex == 3
+		or classIndex == 4
+		or classIndex == 6
+		or (classIndex == 2 and UnitPowerMax(target, 0) < 6000)
+		or (classIndex == 7 and UnitPowerMax(target, 0) < 6000)
+		or (classIndex == 11 and UnitPowerMax(target, 0) < 6000)
+end
+
+local function IsCasterPressureTarget(target, classIndex)
+	return classIndex == 8
+		or classIndex == 9
+		or (classIndex == 5 and jungle.Buff('Shadowform', target))
+		or (classIndex == 11 and jungle.Buff('Moonkin Form', target))
+		or (classIndex == 7 and UnitPowerMax(target, 0) > 7000)
+end
 
 
 local function targetedByCount(_target, _enemyType)
@@ -98,6 +305,24 @@ local function targetedByCount(_target, _enemyType)
 	if no _nemyType returns all
 ]]
 	local _, instanceType = IsInInstance()
+	if _enemyType == nil and instanceType == 'arena' then
+		return GetArenaTargetPressure(_target)
+	end
+
+	if instanceType ~= 'arena'
+	and (_enemyType == nil or _enemyType == 'phys' or _enemyType == 'caster') then
+		local pressure = GetNameplateTargetPressure(_target)
+		if _enemyType == nil or pressure == 0 then
+			return pressure
+		end
+
+		local _, _, classIndex = UnitClass(_target)
+		if _enemyType == 'phys' then
+			return IsPhysicalPressureTarget(_target, classIndex) and pressure or 0
+		end
+		return IsCasterPressureTarget(_target, classIndex) and pressure or 0
+	end
+
 	local enemies = 0
 	local inRange, nameplates = 0, C_NamePlate.GetNamePlates()
 	local _, _, classIndex = UnitClass(_target)
@@ -105,8 +330,8 @@ local function targetedByCount(_target, _enemyType)
 	if _enemyType == 'phys' then
 		if instanceType ~= 'arena' then
 			for index = 1, #nameplates do
-			  local unit = nameplates[index].namePlateUnitToken
-			  if UnitCanAttack("player", unit) and UnitIsUnit(unit..'target', _target)
+			  local unit = GetNameplateUnitToken(nameplates[index], index)
+			  if unit and UnitCanAttack("player", unit) and UnitIsUnit(unit..'target', _target)
 			  and (classIndex==1
 				or classIndex==3
 				or classIndex==4
@@ -142,8 +367,8 @@ local function targetedByCount(_target, _enemyType)
 	if _enemyType == 'caster' then
 		if instanceType ~= 'arena' then
 			for index = 1, #nameplates do
-			  local unit = nameplates[index].namePlateUnitToken
-			  if UnitCanAttack("player", unit) and UnitIsUnit(unit..'taret', _target)
+			  local unit = GetNameplateUnitToken(nameplates[index], index)
+			  if unit and UnitCanAttack("player", unit) and UnitIsUnit(unit..'target', _target)
 			  and (classIndex==8
 				or classIndex==9
 				or (classIndex==5 and jungle.Buff('Shadowform', _target)) -- sp
@@ -175,8 +400,8 @@ local function targetedByCount(_target, _enemyType)
 	if _enemyType == nil then
 		if instanceType ~= 'arena' then
 			for index = 1, #nameplates do
-			  local unit = nameplates[index].namePlateUnitToken
-			  if UnitCanAttack("player", unit) and UnitIsUnit(unit..'taret', _target) then
+			  local unit = GetNameplateUnitToken(nameplates[index], index)
+			  if unit and UnitCanAttack("player", unit) and UnitIsUnit(unit..'target', _target) then
 				 if inRange > 1 then return true end
 				 enemies = enemies + 1
 			  end
@@ -206,12 +431,14 @@ local function enemiesInRange(_spell_range_check)
 		
 	if instanceType ~= 'arena' then
 		for index = 1, #nameplates do
-		  local unit = nameplates[index].namePlateUnitToken
-		  local hpPercent = UnitHealthMax(unit) > 0 and (UnitHealth(unit) / UnitHealthMax(unit) * 100) or 100
-		  if UnitCanAttack("player", unit)
-		  and C_Spell.IsSpellInRange(_spell_range_check, unit) and hpPercent >= 20 then
-			 if inRange > 1 then return true end
-			 enemies = enemies + 1
+		  local unit = GetNameplateUnitToken(nameplates[index], index)
+		  if unit and UnitCanAttack("player", unit) then
+			  local unitHPMax = UnitHealthMax(unit)
+			  local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
+			  if C_Spell.IsSpellInRange(_spell_range_check, unit) and hpPercent >= 20 then
+				 if inRange > 1 then return true end
+				 enemies = enemies + 1
+			  end
 		  end
 	   end
 	elseif instanceType == 'arena' then
@@ -298,13 +525,11 @@ jungle.isPriority = isPriority
 
 
 local function getEnemyNameplates()
-	for i = 1, 100 do
+	for i = 1, 40 do
 		local unit = 'nameplate'..i
 		if UnitExists(unit)
 		and UnitCanAttack('player', unit) then
 			print(UnitName(unit), UnitHealth(unit))
-		else
-			break
 		end
 	end
 end
@@ -375,32 +600,39 @@ local function IsFishing()
 end
 jungle.IsFishing = IsFishing
 
+local WARRIOR_MELEE_SPELLS = {"Hamstring", "Bloodthirst", "Mortal Strike", "Shield Slam", "Pummel", "Revenge"}
+local ROGUE_MELEE_SPELLS = {"Sinister Strike", "Mutilate", "Backstab", "Eviscerate"}
+local DRUID_BEAR_MELEE_SPELLS = {"Mangle", "Lacerate"}
+local DRUID_CAT_MELEE_SPELLS = {"Claw", "Mangle", "Shred"}
+local HUNTER_MELEE_SPELLS = {"Wing Clip", "Raptor Strike"}
 
 local function inMeleeRange(unit)
     if not unit or not UnitExists(unit) then return false end
     
-    local _, classToken = UnitClass("player")
-    local spells = {}
+    local classToken = GetPlayerClass()
+    local spells
     
     if classToken == "WARRIOR" then
-        spells = {"Hamstring", "Bloodthirst", "Mortal Strike", "Shield Slam", "Pummel", "Revenge"}
+        spells = WARRIOR_MELEE_SPELLS
     elseif classToken == "ROGUE" then
-        spells = {"Sinister Strike", "Mutilate", "Backstab", "Eviscerate"}
+        spells = ROGUE_MELEE_SPELLS
     elseif classToken == "DRUID" then
         local form = GetShapeshiftForm()
         if form == 1 then -- Bear Form
-            spells = {"Mangle", "Lacerate"}
+            spells = DRUID_BEAR_MELEE_SPELLS
         elseif form == 3 then -- Cat Form
-            spells = {"Claw", "Mangle", "Shred"}
+            spells = DRUID_CAT_MELEE_SPELLS
         end
     elseif classToken == "HUNTER" then
-        spells = {"Wing Clip", "Raptor Strike"}
+        spells = HUNTER_MELEE_SPELLS
     end
     
-    for i = 1, #spells do
-        local inRange = C_Spell.IsSpellInRange(spells[i], unit)
-        if inRange ~= nil then
-            return inRange
+    if spells then
+        for i = 1, #spells do
+            local inRange = C_Spell.IsSpellInRange(spells[i], unit)
+            if inRange ~= nil then
+                return inRange
+            end
         end
     end
     

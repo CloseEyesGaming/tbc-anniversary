@@ -1,7 +1,5 @@
 local Jungle, jungle = ...
 
-local _, instanceType = IsInInstance()
-
 local Controlled_Root_id = {
 	"Entangling Roots", -- 339, 1062, 5195, 5196, 9852, 9853, 26989
 	"Nature's Grasp", -- 19975, 19974, 19973, 19972, 19971, 19970, 27010
@@ -106,6 +104,15 @@ local Silence_id = {
 }
 jungle.Silence_id = Silence_id
 
+local DR_RESET_TIME = 18
+local drLists = {
+	Controlled_Root_id,
+	Controlled_Stun_id,
+	Disorient_id,
+	Incapacitate_id,
+	Silence_id,
+}
+
 --[[
 	{{}, {}, {}}
 	first subtable - dr 50%
@@ -142,36 +149,39 @@ local function subTableAdd(_table, _target)
 --[[
 	Always need check from last table, coz of priority	
 ]]--
+	local now = GetTime()
+	-- Physical cleanup is throttled, so remove expired entries before using the
+	-- table to advance a new DR application.
+	for i=1, #_table do
+		for j=#_table[i], 1, -1 do
+			if (now - _table[i][j].t) >= DR_RESET_TIME then
+				table.remove(_table[i], j)
+			end
+		end
+	end
+
 	local isFound = false
 	for i=#_table, 1, -1 do -- from last nested table
 		for j=#_table[i], 1, -1 do
 			if _target == _table[i][j]['unit'] then
 				isFound = true
 				if type(_table[i+1]) == 'table' then -- if next table exists
-					table.insert(_table[i+1], { t=GetTime(), unit=_target } ) -- add to next table
+					table.insert(_table[i+1], { t=now, unit=_target } ) -- add to next table
 					-- print('incerted ['.._target..'] to: ', 'table['..(i+1)..']') break
 				elseif type(_table[i+1]) ~= 'table' then
-					table.insert(_table[i], { t=GetTime(), unit=_target } ) -- add to current table
+					table.insert(_table[i], { t=now, unit=_target } ) -- add to current table
 					-- print('incerted ['.._target..'] to: ', 'table['..i..']') break
 				end	
 			end	
 		end	
 	end
 	if isFound == false then
-		table.insert(_table[1], { t=GetTime(), unit=_target } ) return -- add to first table
+		table.insert(_table[1], { t=now, unit=_target } ) return -- add to first table
 		-- print('incerted ['.._target..'] to: ', 'table['..(1)..']')
 	end
 end
 
 local function addToDRTable(_aura, _target)
-	local drLists = {
-		Controlled_Root_id, 
-		Controlled_Stun_id,
-		Disorient_id,
-		Incapacitate_id,
-		Silence_id,
-	}
-	
 	for _, list in ipairs(drLists) do
 	  for _, v in pairs(list) do
 		if v == _aura then
@@ -198,16 +208,11 @@ local function subTableTimerRemove(_table, _time)
 	_table - special table with nested tables, timeStamp: unit
 	_time - int, how long target must be in table in seconds
 ]]--
+		local now = GetTime()
 		for i=1, #_table do
-			for j=1, #_table[i] do
-				if #_table[i] > 0 then
-					if (GetTime() - _table[i][j].t) >= _time then
-						-- print('--table---')
-						-- print(_table[i][j]['unit'])
-						-- print('--table---')
-						-- print('Removing  ['.._table[i][j].unit..'] from [table]:', i)
-						table.remove (_table[i], j) return
-					end
+			for j=#_table[i], 1, -1 do
+				if (now - _table[i][j].t) >= _time then
+					table.remove(_table[i], j)
 				end
 			end
 		end
@@ -221,6 +226,7 @@ f:SetScript("OnEvent", function(self, event)
 end)
 
 function f:COMBAT_LOG_EVENT_UNFILTERED(...)
+	local _, instanceType = IsInInstance()
 	if (instanceType == 'pvp' or instanceType == 'arena') and GetNumGroupMembers() <= 15 then
 		local _, arg2, _, _, _, _, _, _, _, _, _ = ...
 		if arg2 == "SPELL_AURA_APPLIED" then
@@ -239,9 +245,11 @@ local function getDR(_target, _dr_table)
 			fullName = name
 		end
 	local dr = 0
+	local now = GetTime()
 	for i=#_dr_table, 1, -1 do -- from last nested table
 		for j=#_dr_table[i], 1, -1 do
-			if fullName == _dr_table[i][j]['unit'] then
+			if fullName == _dr_table[i][j]['unit']
+			and (now - _dr_table[i][j].t) < DR_RESET_TIME then
 				dr = i return dr
 			end
 		end

@@ -68,9 +68,6 @@ jungle.TimeToReady = TimeToReady
 -- Strict Execution Gate
 -- Returns TRUE only if the spell can physically be cast RIGHT NOW.
 local function ReadyCastSpell(_spell, _target)
-    local _, _, lagHome, _ = GetNetStats()
-    lagHome = (lagHome or 0) / 1000
-    
     -- 1. Check if Spell Exists in game AND if the player knows it
     local name = GetSpellInfo(_spell)
     if not name or not GetSpellBookItemInfo(_spell) then 

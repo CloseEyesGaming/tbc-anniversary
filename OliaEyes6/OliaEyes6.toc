@@ -21,6 +21,9 @@ Core/SwingTimer.lua
 # --- LOGIC & CLASSES ---
 Cast.lua
 Rotation.lua
+Core/Performance.lua
+Core/Arena/SpecDetection.lua
+Core/Arena/Arena.lua
 Core/Engine.lua
 
 # --- DATA & HELPERS ---
@@ -48,4 +51,5 @@ Routines/Fishing.lua
 
 # --- BOOTSTRAP ---
 Main.lua
+Core/Arena/Debug/DebugUI.lua
 Tests.lua

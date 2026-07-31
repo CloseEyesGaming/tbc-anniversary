@@ -177,18 +177,19 @@ function Los:ImNotBehindUnit(unit)
     return (t and t > GetTime()) or false
 end
 
-function Los:OnUpdate()
-    local now = GetTime()
-    local function Clean(cache)
-        for guid, expiry in pairs(cache) do
-            if now >= expiry then
-                cache[guid] = nil
-            end
+local function CleanCache(cache, now)
+    for guid, expiry in pairs(cache) do
+        if now >= expiry then
+            cache[guid] = nil
         end
     end
-    Clean(losCache)
-    Clean(behindCache)
-    Clean(frontCache)
+end
+
+function Los:OnUpdate(now)
+    now = now or GetTime()
+    CleanCache(losCache, now)
+    CleanCache(behindCache, now)
+    CleanCache(frontCache, now)
 end
 
 -- =========================================================

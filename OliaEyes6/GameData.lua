@@ -83,6 +83,7 @@ jungle.healDebuffs = healDebuffs
 local slowImmunityBuffs = {
 	"Blessing of Freedom",
 	"Blessing of Protection",
+	"The Beast Within",
 }
 jungle.slowImmunityBuffs = slowImmunityBuffs
 

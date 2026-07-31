@@ -10,6 +10,40 @@ local function ShouldIgnoreUnlearnedSpell(spell)
     return ignoredSpells and ignoredSpells[spell] and GetSpellBookItemInfo(spell) == nil
 end
 
+local function evaluateRoutine(rotation, target)
+    local tbl = rotation(target)
+    for j = 1, #tbl do
+        local row = tbl[j]
+        if row and row[3] and not ShouldIgnoreUnlearnedSpell(row[2]) then
+            -- Preserve the existing write timing: every qualifying evaluation
+            -- updates routineFunc, even if that candidate does not become best.
+            jungle.CurrentCast.routineFunc = rotation
+            return true, row[2], j, row[4]
+        end
+    end
+    return false
+end
+
+local function IsAttackableLiveUnit(unit)
+    return unit
+        and UnitExists(unit)
+        and UnitCanAttack('player', unit)
+        and not UnitIsDeadOrGhost(unit)
+end
+
+local function TryDpsUnit(self, rotations, pix, unit)
+    local found, spell, target, priority, metadata = self:condition(rotations, pix, unit)
+    if found then
+        local castTarget = target or unit
+        jungle.CurrentCast.targetGUID = UnitGUID(castTarget)
+        jungle.CurrentCast.spellName = spell
+        -- [FIX] Map the metadata from the condition result
+        jungle.CurrentCast.stopcastFunc = metadata
+        return jungle.Cast:CastSpell(spell, castTarget, pix)
+    end
+    return false
+end
+
 function Rotation:new()
     local self = {}
     setmetatable(self, { __index = Rotation })
@@ -18,37 +52,30 @@ end
 
 function Rotation:condition(rotations, pix, _target)
     for i = 1, #rotations do
-        local tbl = rotations[i](_target)
-        for j = 1, #tbl do
-            if tbl[j] and tbl[j][3] and not ShouldIgnoreUnlearnedSpell(tbl[j][2]) then 
-                -- Store the routine function for the stopcast engine's potential re-evaluation
-                jungle.CurrentCast.routineFunc = rotations[i]
-                
-                -- [NEW] Return the 4th parameter (Metadata) if it exists in the rotation line
-                return {tbl[j][2], _target, j, tbl[j][4]}
-            end
+        local found, spell, priority, metadata = evaluateRoutine(rotations[i], _target)
+        if found then
+            return true, spell, _target, priority, metadata
         end
     end
     return false
 end
 
 function Rotation:rotate(rotations, pix)
-    local bestResult, bestUnit = nil, nil
+    local hasBest = false
+    local bestSpell, bestUnit, bestPriority, bestMetadata
     
     for _, rotation in ipairs(rotations) do
         for unit, unitData in pairs(jungle.unitCache) do
             if jungle.isUnitAvailable(unit) and UnitIsFriend('player', unit) then
-                
-                local res = self:condition({rotation}, pix, unit)
-                
-                if res then
+                local found, spell, priority, metadata = evaluateRoutine(rotation, unit)
+                if found then
                     local isBetter = false
                     
-                    if not bestResult then
+                    if not hasBest then
                         isBetter = true
-                    elseif res[3] < bestResult[3] then
+                    elseif priority < bestPriority then
                         isBetter = true -- STRICTLY Better Priority (Index rules all)
-                    elseif res[3] == bestResult[3] then
+                    elseif priority == bestPriority then
                         
                         -- ===================================================
                         -- THE 2D TIE-BREAKER (BUCKETS -> HOT SCORE)
@@ -70,58 +97,60 @@ function Rotation:rotate(rotations, pix)
                     end
 
                     if isBetter then
-                        bestResult, bestUnit = res, unit
+                        hasBest = true
+                        bestSpell = spell
+                        bestUnit = unit
+                        bestPriority = priority
+                        bestMetadata = metadata
                     end
                 end
             end
         end
     end
 
-    if bestResult and bestUnit then
+    if hasBest and bestUnit then
         -- [NEW] Universal State Tracking
         jungle.CurrentCast.targetGUID = UnitGUID(bestUnit)
-        jungle.CurrentCast.spellName = bestResult[1]
-        jungle.CurrentCast.priority = bestResult[3]
+        jungle.CurrentCast.spellName = bestSpell
+        jungle.CurrentCast.priority = bestPriority
         jungle.CurrentCast.startTime = GetTime()
         
         -- [NEW] Metadata Closure for Stopcast Engine
-        jungle.CurrentCast.stopcastFunc = bestResult[4]
+        jungle.CurrentCast.stopcastFunc = bestMetadata
         
         -- [LEGACY/COMPATIBILITY] Marker Detector
-        if bestResult[4] == "PROTECT_BLOOM" then
+        if bestMetadata == "PROTECT_BLOOM" then
             jungle.protectedBlooms = jungle.protectedBlooms or {}
             jungle.protectedBlooms[jungle.CurrentCast.targetGUID] = true
         end
 
-        return jungle.Cast:CastSpell(bestResult[1], bestUnit, pix)
+        return jungle.Cast:CastSpell(bestSpell, bestUnit, pix)
     end
     return false
 end
 
 function Rotation:dpsRotate(rotations, pix)
-    if UnitExists('target') and UnitCanAttack('player', 'target') then
-        local res = self:condition(rotations, pix, 'target')
-        if res then
-            jungle.CurrentCast.targetGUID = UnitGUID('target')
-            jungle.CurrentCast.spellName = res[1]
-            -- [FIX] Map the metadata from the condition result
-            jungle.CurrentCast.stopcastFunc = res[4]
-            return jungle.Cast:CastSpell(res[1], 'target', pix)
-        end
+    if IsAttackableLiveUnit('target') then
+        return TryDpsUnit(self, rotations, pix, 'target')
     end
+
+    if IsAttackableLiveUnit('softenemy') then
+        return TryDpsUnit(self, rotations, pix, 'softenemy')
+    end
+
     return false
 end
 
 function Rotation:arenaRotate(rotations, pix)
     for unit, _ in pairs(jungle.unitCache) do
         if jungle.isUnitAvailable(unit) and UnitCanAttack('player', unit) then
-            local res = self:condition(rotations, pix, unit)
-            if res then
+            local found, spell, target, priority, metadata = self:condition(rotations, pix, unit)
+            if found then
                 jungle.CurrentCast.targetGUID = UnitGUID(unit)
-                jungle.CurrentCast.spellName = res[1]
+                jungle.CurrentCast.spellName = spell
                 -- [FIX] Map the metadata from the condition result
-                jungle.CurrentCast.stopcastFunc = res[4]
-                return jungle.Cast:CastSpell(res[1], unit, pix)
+                jungle.CurrentCast.stopcastFunc = metadata
+                return jungle.Cast:CastSpell(spell, unit, pix)
             end
         end
     end

@@ -1,4 +1,7 @@
 local Jungle, jungle = ...
+local GetPlayerClass = jungle.GetPlayerClass
+local Perf = jungle.Perf
+local DebugProfileStop = debugprofilestop
 
 local Engine = {}
 jungle.Engine = Engine
@@ -8,12 +11,37 @@ Engine.pixel = nil
 Engine.pixelReset = nil
 Engine.activeThread = 0 
 Engine.initialized = false
+Engine.rotationSets = nil
+
+local housekeepingElapsed = 0
+local HOUSEKEEPING_INTERVAL = 1.0
 
 function Engine:Initialize()
     if self.initialized then return end
     self.rotation = jungle.Rotation:new()
     self.pixel = jungle.Pixel:new()
     self.pixelReset = jungle.Pixel:new({0,0,0}, 1)
+    -- Routine modules load after Engine.lua, so capture their function references
+    -- here, once the full addon has finished loading.
+    self.rotationSets = {
+        fishing = {jungle.Fishing},
+        druidUniversal = {jungle.dispellSet, jungle.universalHealSetV6},
+        warriorArmsPveMaintenance = {jungle.warriorArmsPveMaintenance},
+        warriorArms = {jungle.warriorArms},
+        follower = {jungle.followerSet},
+        druidBuff = {jungle.buffSet},
+        druidPvP = {jungle.universalPvPMatrix},
+        druidHeal = {jungle.universalHealSetV6},
+        druidDispel = {jungle.dispellSet},
+        druidRaid = {jungle.tankRollSet2, jungle.raidHealSet2},
+        druidDps = {jungle.druid_interrupt, jungle.dpsSet},
+        warriorUniversal = {jungle.warriorUniversal},
+        warriorTank = {jungle.warriorTank},
+        rogueDps = {jungle.rogueDpsSet},
+    }
+    if jungle.Arena then
+        jungle.Arena:Initialize()
+    end
     self.initialized = true
     print("|cff00FF00[OliaEyes]|r Engine Initialized.")
 end
@@ -26,8 +54,9 @@ function Engine:ProcessRotation()
     if not self.initialized then self:Initialize() end
     self.pixelReset:clear()
     
-    local _, engClass = UnitClass('player')
+    local engClass = GetPlayerClass()
     local rot = self.rotation
+    local sets = self.rotationSets
 
     -- ==========================================
     -- GLOBAL INTERCEPTORS
@@ -49,22 +78,31 @@ function Engine:ProcessRotation()
     -- ==========================================
     if self.activeThread == 7 then
         if IsEquippedItemType("Fishing Poles") then
-            if rot:rotate({jungle.Fishing,}, 1) then return end
+            if rot:rotate(sets.fishing, 1) then return end
         else
+            if engClass == "DRUID" then
+                local isDrinking = jungle.unitCacheBuff("player", "Drink") or jungle.unitCacheBuff("player", "Refreshment")
+                local manaPercent = UnitPowerMax("player", 0) > 0 and (UnitPower("player", 0) / UnitPowerMax("player", 0)) or 1
+                if isDrinking and manaPercent < 0.8 then
+                    return true -- Skip thread 7 actions to not interrupt drinking
+                end
+            end
+            
             -- 1. Class-specific Support/Combat (PRIORITY)
             if engClass == "DRUID" then
-                if rot:rotate({jungle.dispellSet, jungle.universalHealSetV6}, 1) then return true end
+                if rot:rotate(sets.druidUniversal, 1) then return true end
             elseif engClass == "WARRIOR" then
-                if rot:dpsRotate({jungle.warriorArms}, 1) then return true end
+                if rot:dpsRotate(sets.warriorArmsPveMaintenance, 1) then return true end
+                if rot:dpsRotate(sets.warriorArms, 1) then return true end
             end
             
             -- 2. Follower movement and mounting, after urgent class support.
-            if rot:rotate({jungle.followerSet}, 1) then return true end
+            if rot:rotate(sets.follower, 1) then return true end
 
             -- Druid follower buffs are the final priority in this thread.
             -- Reuse the same routine exposed by the dedicated buff thread (6).
             if engClass == "DRUID" then
-                if rot:rotate({jungle.buffSet}, 1) then return true end
+                if rot:rotate(sets.druidBuff, 1) then return true end
             end
         end
         return true -- Thread 7 complete
@@ -75,46 +113,99 @@ function Engine:ProcessRotation()
     -- ==========================================
     if engClass == "DRUID" then
 		if self.activeThread == 1 then
-			if rot:rotate({jungle.universalPvPMatrix}, 1) then return true end
+			if rot:rotate(sets.druidPvP, 1) then return true end
 		elseif self.activeThread == 2 then
-			if rot:rotate({jungle.universalHealSetV6}, 1) then return true end
+			if rot:rotate(sets.druidHeal, 1) then return true end
 		elseif self.activeThread == 3 then
-			if rot:rotate({jungle.dispellSet}, 1) then return true end
+			if rot:rotate(sets.druidDispel, 1) then return true end
 		elseif self.activeThread == 4 then
-			if rot:rotate({jungle.tankRollSet2, jungle.raidHealSet2}, 1) then return true end
+			if rot:rotate(sets.druidRaid, 1) then return true end
 		elseif self.activeThread == 5 then -- Baseline DPS Thread
-			if rot:dpsRotate({jungle.druid_interrupt, jungle.dpsSet}, 1) then return true end
+			if rot:dpsRotate(sets.druidDps, 1) then return true end
 		elseif self.activeThread == 6 then 
-			if rot:rotate({jungle.buffSet}, 1) then return true end
+			if rot:rotate(sets.druidBuff, 1) then return true end
 		end
     elseif engClass == "WARRIOR" then
-        if self.activeThread == 2 then
-            if rot:dpsRotate({jungle.warriorUniversal}, 1) then return true end
+        if self.activeThread == 1 then
+            if rot:dpsRotate(sets.warriorArmsPveMaintenance, 1) then return true end
+            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end        
+		elseif self.activeThread == 2 then
+            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end
         elseif self.activeThread == 5 then
-            if rot:dpsRotate({jungle.warriorTank}, 1) then return true end
+            if rot:dpsRotate(sets.warriorTank, 1) then return true end
         end
     elseif engClass == "ROGUE" then
         if self.activeThread == 5 then
-            if rot:dpsRotate({jungle.rogueDpsSet}, 1) then return true end
+            if rot:dpsRotate(sets.rogueDps, 1) then return true end
         end
     end
 end
 
-function Engine:OnUpdate(sinceLastUpdate)
+function Engine:OnUpdateProfiled(sinceLastUpdate)
+    local frameStart = DebugProfileStop()
     jungle.currentTick = (jungle.currentTick or 0) + 1
+
+    local sectionStart = DebugProfileStop()
     jungle.updateUnitsData()
-    
-	if jungle.Los then
-        jungle.Los:OnUpdate()
-    end
-    
-    local _, instanceType = IsInInstance()
-    if (instanceType == 'pvp' or instanceType == 'arena') and GetNumGroupMembers() <= 15 then
+    Perf:Record("units", DebugProfileStop() - sectionStart)
+
+    -- Expiry checks remain time-aware at query time. This sweep only reclaims
+    -- stale cache entries and therefore does not need to run every frame.
+    housekeepingElapsed = housekeepingElapsed + (sinceLastUpdate or 0)
+    if housekeepingElapsed >= HOUSEKEEPING_INTERVAL then
+        local housekeepingStart = DebugProfileStop()
+        housekeepingElapsed = housekeepingElapsed - HOUSEKEEPING_INTERVAL
+        local now = GetTime()
+        if jungle.Los then
+            jungle.Los:OnUpdate(now)
+        end
         jungle.subTableTimerRemove(Controlled_Root_table, 18)
         jungle.subTableTimerRemove(Controlled_Stun_table, 18)
         jungle.subTableTimerRemove(Disorient_table, 18)
         jungle.subTableTimerRemove(Incapacitate_table, 18)
         jungle.subTableTimerRemove(Silence_table, 18)
+        Perf:Record("housekeeping", DebugProfileStop() - housekeepingStart)
+    end
+
+    if jungle.Arena then
+        local arenaStart = DebugProfileStop()
+        jungle.Arena:OnUpdate()
+        Perf:Record("arena", DebugProfileStop() - arenaStart)
+    end
+
+    sectionStart = DebugProfileStop()
+    self:ProcessRotation()
+    local frameEnd = DebugProfileStop()
+    Perf:Record("rotation", frameEnd - sectionStart)
+    Perf:Record("engine", frameEnd - frameStart)
+end
+
+function Engine:OnUpdate(sinceLastUpdate)
+    if Perf.enabled then
+        return self:OnUpdateProfiled(sinceLastUpdate)
+    end
+
+    jungle.currentTick = (jungle.currentTick or 0) + 1
+    jungle.updateUnitsData()
+
+    -- Expiry checks remain time-aware at query time. This sweep only reclaims
+    -- stale cache entries and therefore does not need to run every frame.
+    housekeepingElapsed = housekeepingElapsed + (sinceLastUpdate or 0)
+    if housekeepingElapsed >= HOUSEKEEPING_INTERVAL then
+        housekeepingElapsed = housekeepingElapsed - HOUSEKEEPING_INTERVAL
+        local now = GetTime()
+        if jungle.Los then
+            jungle.Los:OnUpdate(now)
+        end
+        jungle.subTableTimerRemove(Controlled_Root_table, 18)
+        jungle.subTableTimerRemove(Controlled_Stun_table, 18)
+        jungle.subTableTimerRemove(Disorient_table, 18)
+        jungle.subTableTimerRemove(Incapacitate_table, 18)
+        jungle.subTableTimerRemove(Silence_table, 18)
+    end
+    
+    if jungle.Arena then
+        jungle.Arena:OnUpdate()
     end
     
     self:ProcessRotation()

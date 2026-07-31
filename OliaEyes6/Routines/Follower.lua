@@ -1,5 +1,6 @@
 local Jungle, jungle = ...
 local unitCache = jungle.unitCache
+local GetPlayerClass = jungle.GetPlayerClass
 
 -- ============================================================================
 -- FOLLOWER ROUTINE
@@ -359,7 +360,7 @@ local function isOutlandZone()
 end
 
 local function getFlyingLevelRequirement()
-    local _, class = UnitClass("player")
+    local class = GetPlayerClass()
     if class == "DRUID" then
         return 68
     end
@@ -641,7 +642,7 @@ local function followerNeedsHealing()
 end
 
 local function shouldUseTreeOfLife(travel, rest)
-    local _, class = UnitClass("player")
+    local class = GetPlayerClass()
     return class == "DRUID"
         and not rest.shouldRest
         and travel.inCombat

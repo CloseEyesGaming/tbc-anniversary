@@ -2,6 +2,8 @@ local Jungle, jungle = ...
 
 local Color = {};
 Color.__index = Color;
+local rgbCache = {}
+
 function Color:new()
 	local self = {};
 	setmetatable(self, Color);
@@ -11,11 +13,15 @@ function round(value, decimal)
 	local exp = decimal and 10 ^ decimal or 1
 		return (math.ceil(value * exp - 0.5) / exp)
 end
-function Color:makeColor(str)
-	local str = str or 'No color'
-	local result = {}
+
+function Color:getRGB(str)
+	str = str or 'No color'
+	local cached = rgbCache[str]
+	if cached then
+		return cached[1], cached[2], cached[3]
+	end
+
 	local hash = 0 -- hash
-	if str==nil then str = 'Dummy color' end
 
 		local counter = 1
 		local long = string.len(str)
@@ -31,13 +37,16 @@ function Color:makeColor(str)
 		local a = math.floor((hash / math.pow(10, math.floor(math.log10(hash)) - 2 + 1))) --take 2 first numbers from hash
 		local b = hash % 100  --take last 2 numbers from hash
 		local c = math.ceil(math.log10(hash)) -- get length of hash
-		table.insert(result, 1, a / 255)
-		table.insert(result, 2, b / 255) 
-		table.insert(result, 3, c / 255)
-		
-		result[1] = round(result[1], 4)
-		result[2] = round(result[2], 4)
-		result[3] = round(result[3], 4)
-	return result
+		local r = round(a / 255, 4)
+		local g = round(b / 255, 4)
+		local blue = round(c / 255, 4)
+
+	rgbCache[str] = {r, g, blue}
+	return r, g, blue
+end
+
+function Color:makeColor(str)
+	local r, g, b = self:getRGB(str)
+	return {r, g, b}
 end
 jungle.Color = Color

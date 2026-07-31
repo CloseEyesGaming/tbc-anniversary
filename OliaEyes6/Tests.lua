@@ -7,9 +7,183 @@ local Jungle, jungle = ...
 -- [tst0] Local Developer Scratchpad
 -- Purpose: Diagnostic check for Pick Pocket unit info
 function tst0()
-local inRange = CheckInteractDistance("target", 3)
-print(inRange)
-    
+    tstNameplates()
+end
+
+local function SafeText(value)
+    if value == nil then return "nil" end
+    local ok, text = pcall(tostring, value)
+    if ok then return text end
+    return "<tostring error: " .. tostring(text) .. ">"
+end
+
+local function SafeCall(fn)
+    local ok, a, b, c = pcall(fn)
+    if not ok then
+        return false, a
+    end
+    return true, a, b, c
+end
+
+local function FormatCallResult(ok, ...)
+    if not ok then
+        return "ERR: " .. SafeText(...)
+    end
+
+    local values = { ... }
+    local count = select("#", ...)
+    if count == 0 then
+        return "nil"
+    end
+
+    for i = 1, count do
+        values[i] = SafeText(values[i])
+    end
+    return table.concat(values, ", ", 1, count)
+end
+
+local function SafeField(object, key)
+    local ok, value = SafeCall(function()
+        return object and object[key]
+    end)
+    return FormatCallResult(ok, value)
+end
+
+local function SafeMethod(object, methodName)
+    local method = object and object[methodName]
+    if type(method) ~= "function" then
+        return "n/a"
+    end
+
+    local ok, value = SafeCall(function()
+        return method(object)
+    end)
+    return FormatCallResult(ok, value)
+end
+
+local function SafeUnitCall(fn, unit)
+    if not unit then return "nil-unit" end
+    local ok, a, b = SafeCall(function()
+        return fn(unit)
+    end)
+    return FormatCallResult(ok, a, b)
+end
+
+local function SafeUnitCanAttack(unit)
+    if not unit then return "nil-unit" end
+    local ok, result = SafeCall(function()
+        return UnitCanAttack("player", unit)
+    end)
+    return FormatCallResult(ok, result)
+end
+
+local function SafeNamePlateForUnit(unit, includeForbidden)
+    local ok, frame = SafeCall(function()
+        return C_NamePlate.GetNamePlateForUnit(unit, includeForbidden)
+    end)
+    return ok and frame or nil, FormatCallResult(ok, frame)
+end
+
+function tstNameplates(maxFrames)
+    maxFrames = tonumber(maxFrames) or 12
+
+    local version, build, date, toc = GetBuildInfo()
+    print("|cff00ccff[OliaEyes]|r Nameplate diagnostic")
+    print(string.format("Build: %s.%s toc=%s date=%s", SafeText(version), SafeText(build), SafeText(toc), SafeText(date)))
+
+    local ok, nameplates = SafeCall(function()
+        return C_NamePlate.GetNamePlates()
+    end)
+    if not ok then
+        print("C_NamePlate.GetNamePlates ERROR: " .. SafeText(nameplates))
+        return
+    end
+
+    OliaNameplateDebug = {
+        build = { version = version, build = build, date = date, toc = toc },
+        frames = {},
+        tokens = {},
+    }
+
+    local frameCount = type(nameplates) == "table" and #nameplates or 0
+    print("C_NamePlate.GetNamePlates count: " .. SafeText(frameCount))
+
+    local targetExists = UnitExists("target") and true or false
+    print("target exists=" .. SafeText(targetExists)
+        .. " name=" .. SafeUnitCall(UnitName, "target")
+        .. " guid=" .. SafeUnitCall(UnitGUID, "target")
+        .. " canAttack=" .. SafeUnitCanAttack("target"))
+
+    for i = 1, math.min(frameCount, maxFrames) do
+        local frame = nameplates[i]
+        local token = frame and frame.namePlateUnitToken
+        local unitFrame = frame and frame.UnitFrame
+
+        local entry = {
+            index = i,
+            frame = SafeText(frame),
+            frameName = SafeMethod(frame, "GetName"),
+            objectType = SafeMethod(frame, "GetObjectType"),
+            forbidden = SafeMethod(frame, "IsForbidden"),
+            shown = SafeMethod(frame, "IsShown"),
+            namePlateUnitToken = SafeText(token),
+            unit = SafeField(frame, "unit"),
+            unitToken = SafeField(frame, "unitToken"),
+            displayedUnit = SafeField(frame, "displayedUnit"),
+            unitFrame = SafeText(unitFrame),
+            unitFrameUnit = SafeField(unitFrame, "unit"),
+            unitFrameUnitToken = SafeField(unitFrame, "unitToken"),
+            unitFrameDisplayedUnit = SafeField(unitFrame, "displayedUnit"),
+        }
+        OliaNameplateDebug.frames[i] = entry
+
+        print(string.format(
+            "#%d frame=%s name=%s object=%s forbidden=%s shown=%s",
+            i, entry.frame, entry.frameName, entry.objectType, entry.forbidden, entry.shown))
+        print(string.format(
+            "   fields: namePlateUnitToken=%s unit=%s unitToken=%s displayedUnit=%s",
+            entry.namePlateUnitToken, entry.unit, entry.unitToken, entry.displayedUnit))
+        print(string.format(
+            "   UnitFrame=%s UnitFrame.unit=%s UnitFrame.unitToken=%s UnitFrame.displayedUnit=%s",
+            entry.unitFrame, entry.unitFrameUnit, entry.unitFrameUnitToken, entry.unitFrameDisplayedUnit))
+
+        if token then
+            print("   tokenInfo: exists=" .. SafeUnitCall(UnitExists, token)
+                .. " canAttack=" .. SafeUnitCanAttack(token)
+                .. " name=" .. SafeUnitCall(UnitName, token)
+                .. " guid=" .. SafeUnitCall(UnitGUID, token))
+        end
+    end
+
+    local existingTokens = 0
+    for i = 1, 40 do
+        local unit = "nameplate" .. i
+        local okExists, exists = SafeCall(function()
+            return UnitExists(unit)
+        end)
+
+        if okExists and exists then
+            existingTokens = existingTokens + 1
+            local frame, frameText = SafeNamePlateForUnit(unit, true)
+            local tokenEntry = {
+                unit = unit,
+                name = SafeUnitCall(UnitName, unit),
+                guid = SafeUnitCall(UnitGUID, unit),
+                canAttack = SafeUnitCanAttack(unit),
+                frame = frameText,
+                frameName = SafeMethod(frame, "GetName"),
+                forbidden = SafeMethod(frame, "IsForbidden"),
+            }
+            table.insert(OliaNameplateDebug.tokens, tokenEntry)
+
+            print(string.format(
+                "%s exists name=%s guid=%s canAttack=%s frame=%s frameName=%s forbidden=%s",
+                unit, tokenEntry.name, tokenEntry.guid, tokenEntry.canAttack, tokenEntry.frame, tokenEntry.frameName, tokenEntry.forbidden))
+        end
+    end
+
+    print("nameplate1..40 existing tokens: " .. existingTokens)
+    print("Saved full diagnostic to global OliaNameplateDebug")
 end
 
 function tst2()
@@ -104,15 +278,57 @@ end
 --  COMPLEX SWING MISS LOGGER FOR WARRIOR HS/CLEAVE ROTATIONS
 -- =============================================================
 
-JungleMissLog = JungleMissLog or {}
 jungle.CastHistory = jungle.CastHistory or {}
 jungle.DesyncHistory = jungle.DesyncHistory or {}
 jungle.DesyncCount = jungle.DesyncCount or 0
+
+local missFrame
+
+local function IsMissLoggingEnabled()
+    return type(JungleMissLog) == "table" and JungleMissLog.enabled == true
+end
+
+local function UpdateMissEventRegistration()
+    if not missFrame then return end
+    if IsMissLoggingEnabled() then
+        missFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    else
+        missFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    end
+end
+
+local function ClearMissTelemetry()
+    if type(JungleMissLog) ~= "table" then
+        JungleMissLog = {}
+    end
+    for i = #JungleMissLog, 1, -1 do
+        JungleMissLog[i] = nil
+    end
+    jungle.CastHistory = {}
+    jungle.DesyncCount = 0
+    jungle.DesyncHistory = {}
+    jungle.desyncCastSinceLastSwing = false
+    jungle.isSyncedDesyncTrigger = false
+end
+
+local function SetMissLoggingEnabled(enabled)
+    if type(JungleMissLog) ~= "table" then
+        JungleMissLog = {}
+    end
+    JungleMissLog.enabled = enabled and true or false
+    jungle.desyncCastSinceLastSwing = false
+    jungle.isSyncedDesyncTrigger = false
+    UpdateMissEventRegistration()
+end
 
 -- 1. Hook jungle.Cast:CastSpell to track commands sent by the bot
 local origCastSpell = jungle.Cast.CastSpell
 if origCastSpell then
     jungle.Cast.CastSpell = function(self, spell, target, pix)
+        if not IsMissLoggingEnabled() then
+            return origCastSpell(self, spell, target, pix)
+        end
+
         table.insert(jungle.CastHistory, 1, {
             spell = spell,
             target = target,
@@ -158,9 +374,10 @@ if origCastSpell then
 end
 
 -- 2. Create Event Listener for Swing and Spell Misses
-local missFrame = CreateFrame("Frame")
-missFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+missFrame = CreateFrame("Frame")
 missFrame:SetScript("OnEvent", function()
+    if not IsMissLoggingEnabled() then return end
+
     local timestamp, eventType, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
     
     if sourceGUID ~= UnitGUID("player") then return end
@@ -270,6 +487,23 @@ end)
 -- 3. Slash command to dump the logs
 SLASH_JUNGLEMISSLOG1 = "/misslog"
 SlashCmdList["JUNGLEMISSLOG"] = function(msg)
+    local command = string.match(string.lower(msg or ""), "^%s*(%S*)") or ""
+    if command == "on" then
+        SetMissLoggingEnabled(true)
+        print("|cFF00FFFF[JungleMiss]|r Logging enabled.")
+        return
+    elseif command == "off" then
+        SetMissLoggingEnabled(false)
+        print("|cFF00FFFF[JungleMiss]|r Logging disabled.")
+        return
+    elseif command == "clear" then
+        local wasEnabled = IsMissLoggingEnabled()
+        ClearMissTelemetry()
+        JungleMissLog.enabled = wasEnabled
+        print("|cFF00FFFF[JungleMiss]|r Logs cleared.")
+        return
+    end
+
     if not JungleMissLog or #JungleMissLog == 0 then
         print("|cFF00FFFF[JungleMiss]|r No misses logged yet.")
         return
@@ -317,11 +551,21 @@ end
 local clearFrame = CreateFrame("Frame")
 clearFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 clearFrame:SetScript("OnEvent", function()
-    JungleMissLog = {}
-    jungle.DesyncCount = 0
-    jungle.DesyncHistory = {}
-    jungle.desyncCastSinceLastSwing = false
-    print("|cFF00FFFF[JungleMiss]|r Miss logs cleared on reload.")
+    if type(JungleMissLog) ~= "table" then
+        JungleMissLog = {}
+    end
+    if JungleMissLog.enabled == nil then
+        JungleMissLog.enabled = false
+    end
+
+    local enabled = JungleMissLog.enabled
+    ClearMissTelemetry()
+    JungleMissLog.enabled = enabled
+    UpdateMissEventRegistration()
+
+    if enabled then
+        print("|cFF00FFFF[JungleMiss]|r Miss logs cleared on reload.")
+    end
 end)
 
 -- 5. Slash command to show desync statistics and history in-game

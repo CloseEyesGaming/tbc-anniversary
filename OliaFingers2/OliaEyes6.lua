@@ -568,6 +568,13 @@ OliaEyes_Export = {
 ["color"] = "411309",
 },
 {
+["type"] = "Static",
+["key"] = "ALT-INSERT",
+["id"] = "softenemy",
+["class"] = "GLOBAL",
+["color"] = "1e3c0a",
+},
+{
 ["type"] = "Dynamic",
 ["key"] = "CTRL-0",
 ["id"] = "Steady Shot",
@@ -2391,4 +2398,42 @@ OliaEyes_Export = {
 OliaDebugLog = {
 }
 JungleMissLog = {
+["enabled"] = false,
+}
+OliaArmsLog = {
+["enabled"] = false,
+["stats"] = {
+["slamMissed"] = 0,
+["slamSkipped"] = 0,
+["fights"] = 0,
+["slamFailed"] = 0,
+["swings"] = 0,
+["slamUsed"] = 0,
+["core"] = {
+["Mortal Strike"] = {
+["casts"] = 0,
+["delaySamples"] = 0,
+["actionableDelayMax"] = 0,
+["delayedCasts"] = 0,
+["actionableDelayTotal"] = 0,
+},
+["Whirlwind"] = {
+["casts"] = 0,
+["delaySamples"] = 0,
+["actionableDelayMax"] = 0,
+["delayedCasts"] = 0,
+["actionableDelayTotal"] = 0,
+},
+["Sweeping Strikes"] = {
+["casts"] = 0,
+["delaySamples"] = 0,
+["actionableDelayMax"] = 0,
+["delayedCasts"] = 0,
+["actionableDelayTotal"] = 0,
+},
+},
+},
+["version"] = 1,
+["entries"] = {
+},
 }

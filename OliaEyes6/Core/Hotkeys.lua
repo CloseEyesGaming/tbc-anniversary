@@ -4,6 +4,7 @@ local Hotkeys = jungle.Hotkeys
 
 -- 1. Initialize Debug State
 Hotkeys.DebugMode = false
+Hotkeys.EquipMacroTargets = {}
 
 -- ----------------------------------------------------------------------------
 -- 0. MACRO OVERRIDES (Universal)
@@ -422,7 +423,10 @@ Hotkeys.Pool_Targeting = {
     "CTRL-B", "CTRL-P", "CTRL-H",
 
     -- Weapon Equip Keys (3)
-    "CTRL-N", "ALT-N", "ALT-M"
+    "CTRL-N", "ALT-N", "ALT-M",
+
+    -- Soft target focus fallback
+    "ALT-INSERT"
 }
 
 -- ----------------------------------------------------------------------------
@@ -558,6 +562,7 @@ function Hotkeys:CreateStaticBar()
     for i = 5, 5 do CreateBtn("arena"..i, "/focus arena"..i) end -- Adjusted loop start to 5 for remaining Arena unit
     for i = 1, 4 do CreateBtn("arena"..i, "/focus arena"..i) end -- Correct loop for Arena 1-4
     for i = 1, 40 do CreateBtn("raid"..i, "/focus raid"..i) end
+    CreateBtn("softenemy", "/focus softenemy", "Interface\\Icons\\Ability_Hunter_SniperShot")
 
     self.StaticBarFrame = parent
 end
@@ -679,6 +684,7 @@ function Hotkeys:ToggleDebug()
 end
 
 local last2H, last1H, lastShield, lastMH, lastOH, lastThird, lastFastOH, lastSlowOH
+local equipMacrosDirty = false
 function Hotkeys:UpdateEquipMacros()
     if InCombatLockdown() then return end
     local _, engClass = UnitClass('player')
@@ -730,12 +736,15 @@ function Hotkeys:UpdateEquipMacros()
             if #parts > 0 then
                 btnData.frame:SetAttribute("macrotext", table.concat(parts, "\n"))
             end
-        elseif btnData.id == "EquipFastOffHand" and fastOH then
-            btnData.frame:SetAttribute("macrotext", "/equipslot 17 " .. fastOH)
-        elseif btnData.id == "EquipSlowOffHand" and slowOH then
-            btnData.frame:SetAttribute("macrotext", "/equipslot 17 " .. slowOH)
+        elseif btnData.id == "EquipFastOffHand" then
+            self.EquipMacroTargets.EquipFastOffHand = fastOH
+            btnData.frame:SetAttribute("macrotext", fastOH and ("/equipslot 17 " .. fastOH) or "")
+        elseif btnData.id == "EquipSlowOffHand" then
+            self.EquipMacroTargets.EquipSlowOffHand = slowOH
+            btnData.frame:SetAttribute("macrotext", slowOH and ("/equipslot 17 " .. slowOH) or "")
         end
     end
+    equipMacrosDirty = false
     
     if best2H ~= last2H or best1H ~= last1H or bestShield ~= lastShield or bestMH ~= lastMH or bestOH ~= lastOH or bestThird ~= lastThird or fastOH ~= lastFastOH or slowOH ~= lastSlowOH then
         last2H, last1H, lastShield, lastMH, lastOH, lastThird, lastFastOH, lastSlowOH = best2H, best1H, bestShield, bestMH, bestOH, bestThird, fastOH, slowOH
@@ -809,6 +818,7 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 f:RegisterEvent("BAG_UPDATE_DELAYED")
+f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:SetScript("OnEvent", function(self, event) 
     if event == "PLAYER_ENTERING_WORLD" then
         OliaDebugLog = {} 
@@ -818,7 +828,13 @@ f:SetScript("OnEvent", function(self, event)
     end
     
     if event == "BAG_UPDATE_DELAYED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
-        if not InCombatLockdown() then
+        if InCombatLockdown() then
+            equipMacrosDirty = true
+        else
+            Hotkeys:UpdateEquipMacros()
+        end
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if equipMacrosDirty then
             Hotkeys:UpdateEquipMacros()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then

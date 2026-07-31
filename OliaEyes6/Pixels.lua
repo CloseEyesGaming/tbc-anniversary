@@ -46,15 +46,12 @@ function Pixel:clear()
     if self.pix == 1 then
         if HelloWorld1.texture then
             local r, g, b = 0, 0, 0
-            local actionMsg = "Idle"
-            local targetMsg = "None"
+            local hasFocus = UnitExists("focus")
 
             -- 1. Check State (Focus Logic)
-            if UnitExists("focus") then
+            if hasFocus then
                 -- IDLE + FOCUS: Show Green (Key 7)
                 r, g, b = 0.0863, 0.2549, 0.0392
-                actionMsg = "Clear Focus"
-                targetMsg = UnitName("focus") or "Focus"
             end
             
             -- 2. Apply Visual Pixel (For Python)
@@ -63,7 +60,9 @@ function Pixel:clear()
             -- 3. [DEBUG FIX] Reset the Panel
             -- We force the panel to show "Idle" right now.
             -- If a spell is cast later in this same frame, it will overwrite this with "Cast: X".
-            if jungle.Debug then
+            if jungle.Debug and jungle.Debug.enabled then
+                local actionMsg = hasFocus and "Clear Focus" or "Idle"
+                local targetMsg = hasFocus and (UnitName("focus") or "Focus") or "None"
                 jungle.Debug:UpdateCast(actionMsg, targetMsg, {r, g, b})
             end
 
