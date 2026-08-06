@@ -93,6 +93,54 @@ local unitIgnoreDebuffs = {
 }
 jungle.unitIgnoreDebuffs = unitIgnoreDebuffs
 
+-- Enemy nameplates with these auras do not contribute to AoE-mode counts.
+-- This is intentionally separate from unitIgnoreDebuffs: these units remain
+-- valid direct targets and their presence never disables an existing AoE
+-- rotation.
+local enemyNameplateAoEIgnoreDebuffs = {
+	"Cyclone",
+	"Banish",
+	"Entangling Roots",
+	"Nature's Grasp",
+	"Frost Nova",
+	"Freeze",
+	"Frost Grenade",
+	"Entrapment",
+	"Improved Wing Clip",
+	"Frostbite",
+	"Improved Hamstring",
+	"Hibernate",
+	"Shackle Undead",
+	"Freezing Trap Effect",
+	"Wyvern Sting",
+	"Polymorph",
+	"Polymorph: Turtle",
+	"Polymorph: Pig",
+	"Repentance",
+	"Sap",
+	"Gouge",
+	"Blind",
+	"Scare Beast",
+	"Turn Evil",
+	"Psychic Scream",
+	"Fear",
+	"Seduction",
+	"Howl of Terror",
+	"Intimidating Shout",
+	"Scatter Shot",
+	"Dragon's Breath",
+}
+jungle.enemyNameplateAoEIgnoreDebuffs = enemyNameplateAoEIgnoreDebuffs
+
+local enemyNameplateAoEIgnoreBuffs = {
+	"Mind Control",
+	"Ice Block",
+	"Divine Shield",
+	"Blessing of Protection",
+	"Divine Intervention",
+}
+jungle.enemyNameplateAoEIgnoreBuffs = enemyNameplateAoEIgnoreBuffs
+
 local unitIgnoreBuffCaster = {
 	"Cloak of Shadows",
 	"Ice Block",

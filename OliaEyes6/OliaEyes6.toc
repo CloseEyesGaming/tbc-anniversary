@@ -3,6 +3,7 @@
 ## Notes: Automation Core
 ## Author: Olia
 ## Version: 5.0
+## OptionalDeps: SuperSwingTimer
 ## SavedVariables: OliaEyes_Export, OliaDebugLog, JungleMissLog, OliaArmsLog
 
 

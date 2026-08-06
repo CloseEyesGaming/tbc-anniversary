@@ -45,6 +45,98 @@ local function GetNameplateUnitToken(nameplate, index)
 end
 jungle.GetNameplateUnitToken = GetNameplateUnitToken
 
+local CREATURE_TYPE_TOTEM_ID = 11
+
+local function IsTotemUnit(unit)
+    if not unit or not UnitExists(unit) then return false end
+    local creatureTypeName, creatureTypeID = UnitCreatureType(unit)
+    return creatureTypeID == CREATURE_TYPE_TOTEM_ID or creatureTypeName == "Totem"
+end
+jungle.IsTotemUnit = IsTotemUnit
+
+local function HasActiveAuraEntries(entries)
+    if not entries then return false end
+    for _, aura in pairs(entries) do
+        if aura and aura.isActive then
+            return true
+        end
+    end
+    return false
+end
+
+local enemyNameplateAoEDebuffSet
+local enemyNameplateAoEBuffSet
+local enemyNameplateAoEEligibilityTick = -1
+local enemyNameplateAoEEligibilityByGUID = {}
+
+local function BuildAuraNameSet(names)
+    local result = {}
+    for _, name in ipairs(names or {}) do
+        result[name] = true
+    end
+    return result
+end
+
+local function EnsureEnemyNameplateAoEAuraSets()
+    if not enemyNameplateAoEDebuffSet then
+        enemyNameplateAoEDebuffSet = BuildAuraNameSet(jungle.enemyNameplateAoEIgnoreDebuffs)
+        enemyNameplateAoEBuffSet = BuildAuraNameSet(jungle.enemyNameplateAoEIgnoreBuffs)
+    end
+end
+
+local function HasDirectMatchingAura(unit, filter, names)
+    if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return false end
+    for index = 1, 40 do
+        local aura = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+        if not aura then break end
+        if names[aura.name] then return true end
+    end
+    return false
+end
+
+local function IsEnemyNameplateEligibleForAoE(unit)
+    if not unit
+    or not UnitExists(unit)
+    or not UnitCanAttack("player", unit)
+    or UnitIsDeadOrGhost(unit)
+    or IsTotemUnit(unit) then
+        return false
+    end
+
+    local currentTick = jungle.currentTick
+    if currentTick and currentTick ~= enemyNameplateAoEEligibilityTick then
+        enemyNameplateAoEEligibilityTick = currentTick
+        enemyNameplateAoEEligibilityByGUID = {}
+    end
+    local guid = currentTick and UnitGUID(unit) or nil
+    if guid and enemyNameplateAoEEligibilityByGUID[guid] ~= nil then
+        return enemyNameplateAoEEligibilityByGUID[guid]
+    end
+
+    local function FinishEligibility(result)
+        if guid then enemyNameplateAoEEligibilityByGUID[guid] = result end
+        return result
+    end
+
+    local unitCache = jungle.unitCache
+    local unitData = unitCache and unitCache[unit]
+    if unitData and unitData.auraInitialized and unitData.auras then
+        local debuffs = unitData.auras.debuffs
+        local buffs = unitData.auras.buffs
+        if HasActiveAuraEntries(debuffs and debuffs.enemyNameplateAoEIgnore)
+        or HasActiveAuraEntries(buffs and buffs.enemyNameplateAoEIgnore) then
+            return FinishEligibility(false)
+        end
+        return FinishEligibility(true)
+    end
+
+    EnsureEnemyNameplateAoEAuraSets()
+    return FinishEligibility(not HasDirectMatchingAura(unit, "HARMFUL", enemyNameplateAoEDebuffSet)
+        and not HasDirectMatchingAura(unit, "HELPFUL", enemyNameplateAoEBuffSet)
+    )
+end
+jungle.IsEnemyNameplateEligibleForAoE = IsEnemyNameplateEligibleForAoE
+
 local function isCasting(_target, timeToEnd, spell)
     --[[
         Checks if a unit is currently casting an interruptible spell.
@@ -126,7 +218,7 @@ local function getEnemies()
 	local inRange, nameplates = 0, C_NamePlate.GetNamePlates()
    for index = 1, #nameplates do
       local unit = GetNameplateUnitToken(nameplates[index], index)
-      if unit and UnitCanAttack("player", unit) then
+      if IsEnemyNameplateEligibleForAoE(unit) then
          local unitHPMax = UnitHealthMax(unit)
          local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
          if instanceType == 'arena' or hpPercent >= 20 then
@@ -432,7 +524,7 @@ local function enemiesInRange(_spell_range_check)
 	if instanceType ~= 'arena' then
 		for index = 1, #nameplates do
 		  local unit = GetNameplateUnitToken(nameplates[index], index)
-		  if unit and UnitCanAttack("player", unit) then
+		  if IsEnemyNameplateEligibleForAoE(unit) then
 			  local unitHPMax = UnitHealthMax(unit)
 			  local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
 			  if C_Spell.IsSpellInRange(_spell_range_check, unit) and hpPercent >= 20 then
@@ -443,7 +535,7 @@ local function enemiesInRange(_spell_range_check)
 	   end
 	elseif instanceType == 'arena' then
 		for i=1, 5 do
-			if UnitExists('arena'..i)
+			if IsEnemyNameplateEligibleForAoE('arena'..i)
 			and C_Spell.IsSpellInRange(_spell_range_check, 'arena'..i) then
 				enemies = enemies + 1
 			end

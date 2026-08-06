@@ -192,8 +192,16 @@ local dpsBearCache = {
 }
 local dpsCasterCache = {
     [1]= {'Faerie Fire', 'Faerie Fire', false, 1, 0},
+    [2]= {'Moonfire', 'Moonfire', false, 1, 0},
+    [3]= {'Insect Swarm', 'Insect Swarm', false, 1, 0},
+    [4]= {'Starfire', 'Starfire', false, 1, 0},
+    [5]= {'Wrath', 'Wrath', false, 1, 0},
+    [6]= {'Attack', 'Attack', false, 1, 0},
+}
+local dpsPvPCasterCache = {
+    [1]= {'Moonfire', 'Moonfire', false, 1, 0},
     [2]= {'Insect Swarm', 'Insect Swarm', false, 1, 0},
-    [3]= {'Moonfire', 'Moonfire', false, 1, 0},
+    [3]= {'Faerie Fire', 'Faerie Fire', false, 1, 0},
     [4]= {'Starfire', 'Starfire', false, 1, 0},
     [5]= {'Wrath', 'Wrath', false, 1, 0},
     [6]= {'Attack', 'Attack', false, 1, 0},
@@ -335,29 +343,53 @@ function jungle.dpsSet(_target)
 		-- Standard Caster Rotation (Only if window expired or manual shift)
         local isMoving = GetUnitSpeed('player') > 0
         local inCombat = UnitAffectingCombat('player')
+        local isPvPTarget = UnitIsPVP(_target)
+        local starfireReady = not isMoving and jungle.ReadyCastSpell('Starfire', _target)
+        local wrathReady = not isMoving and jungle.ReadyCastSpell('Wrath', _target)
 
         local isMoonkin = (GetShapeshiftForm() == 5 or jungle.unitCacheBuff('player', "Moonkin Form"))
         local targetLevel = UnitLevel(_target)
         local isHighLevel = (targetLevel == -1 or targetLevel >= 70)
+        local hasMoonfire = jungle.Debuff('Moonfire', _target, '|PLAYER')
+        local hasInsectSwarm = jungle.Debuff('Insect Swarm', _target, '|PLAYER')
+        local hasFaerieFire = jungle.Debuff('Faerie Fire', _target) or jungle.Debuff('Faerie Fire (Feral)', _target)
+
+        if isPvPTarget then
+            local hasBothDots = hasMoonfire and hasInsectSwarm
+
+            dpsPvPCasterCache[1][3] = (isMoving and jungle.ReadyCastSpell('Moonfire', _target) and (not hasMoonfire or (hasBothDots and hasFaerieFire)))
+            dpsPvPCasterCache[2][3] = (isMoving and jungle.ReadyCastSpell('Insect Swarm', _target) and not hasInsectSwarm)
+            dpsPvPCasterCache[3][3] = (isMoving and hasBothDots and not hasFaerieFire and jungle.ReadyCastSpell('Faerie Fire', _target))
+            dpsPvPCasterCache[4][3] = (starfireReady and not wrathReady)
+            dpsPvPCasterCache[5][3] = wrathReady
+            dpsPvPCasterCache[6][3] = shouldAttack
+
+            return dpsPvPCasterCache
+        end
+
+        local hasAllPvEDebuffs = hasMoonfire
+            and (hasInsectSwarm or not IsSpellLearned('Insect Swarm'))
+            and (not isMoonkin or not isHighLevel or hasFaerieFire)
+        local usePvEMoonfire = isMoving
+            and jungle.ReadyCastSpell('Moonfire', _target)
+            and (not hasMoonfire or hasAllPvEDebuffs)
 
         if isMoonkin then
-            local starfireReady = not isMoving and jungle.ReadyCastSpell('Starfire', _target)
-            local wrathReady = not isMoving and jungle.ReadyCastSpell('Wrath', _target)
-            local preferWrath = not isMoving and CheckInteractDistance(_target, 3)
+            local preferWrath = CheckInteractDistance(_target, 3)
             local useWrath = wrathReady and (preferWrath or not starfireReady)
             local useStarfire = starfireReady and not useWrath
 
             dpsCasterCache[1][3] = (jungle.ReadyCastSpell('Faerie Fire', _target) and isHighLevel and not jungle.Debuff('Faerie Fire', _target) and not jungle.Debuff('Faerie Fire (Feral)', _target))
-            dpsCasterCache[2][3] = (isMoving and jungle.ReadyCastSpell('Insect Swarm', _target) and not jungle.Debuff('Insect Swarm', _target, '|PLAYER'))
-            dpsCasterCache[3][3] = (isMoving and jungle.ReadyCastSpell('Moonfire', _target) and not jungle.Debuff('Moonfire', _target, '|PLAYER'))
+            dpsCasterCache[2][3] = usePvEMoonfire
+            dpsCasterCache[3][3] = (isMoving and jungle.ReadyCastSpell('Insect Swarm', _target) and not hasInsectSwarm)
             dpsCasterCache[4][3] = useStarfire
             dpsCasterCache[5][3] = useWrath
         else
             dpsCasterCache[1][3] = false
-            dpsCasterCache[2][3] = (jungle.ReadyCastSpell('Insect Swarm', _target) and isMoving and not jungle.Debuff('Insect Swarm', _target, '|PLAYER'))
-            dpsCasterCache[3][3] = (jungle.ReadyCastSpell('Moonfire', _target) and isMoving and not jungle.Debuff('Moonfire', _target, '|PLAYER'))
-            dpsCasterCache[4][3] = (jungle.ReadyCastSpell('Starfire', _target) and not isMoving and not inCombat)
-            dpsCasterCache[5][3] = (jungle.ReadyCastSpell('Wrath', _target) and not isMoving and inCombat)
+            dpsCasterCache[2][3] = usePvEMoonfire
+            dpsCasterCache[3][3] = (isMoving and jungle.ReadyCastSpell('Insect Swarm', _target) and not hasInsectSwarm)
+            dpsCasterCache[4][3] = (starfireReady and not inCombat)
+            dpsCasterCache[5][3] = (wrathReady and inCombat)
         end
         dpsCasterCache[6][3] = (shouldAttack)
 

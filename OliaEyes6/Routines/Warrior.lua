@@ -1,5 +1,7 @@
 local Jungle, jungle = ...
 local unitCache = jungle.unitCache
+local IsTotemUnit = jungle.IsTotemUnit
+local IsEnemyNameplateEligibleForAoE = jungle.IsEnemyNameplateEligibleForAoE
 local GetNameplateUnitToken = jungle.GetNameplateUnitToken or function(nameplate, index)
     local unit = nameplate and (nameplate.namePlateUnitToken or nameplate.unitToken or nameplate.unit or nameplate.displayedUnit)
     local unitFrame = nameplate and nameplate.UnitFrame
@@ -410,9 +412,81 @@ end
 -- ============================================================================
 -- TALENT-BASED BUILD DETECTION & EQUIP CACHES
 -- ============================================================================
+local warriorCapabilities = {
+    improvedSlamRank = 0,
+    hasImprovedSlam2 = false,
+    hasSweepingStrikes = false,
+    hasBloodthirst = false,
+    hasMortalStrike = false,
+    hasSlam = false,
+    hasDualWieldSpecialization = false,
+}
+
+local BLOODTHIRST_SPELL_IDS = {23881, 23892, 23893, 23894, 25251, 30335}
+
+local function IsAnyPlayerSpellKnown(spellIDs)
+    for i = 1, #spellIDs do
+        local spellID = spellIDs[i]
+        if IsPlayerSpell(spellID) or IsSpellKnown(spellID) then
+            return true
+        end
+    end
+    return false
+end
+
+local function RefreshWarriorCapabilities()
+    local improvedSlamRank = 0
+    local hasSweepingStrikesTalent = false
+    local hasDualWieldSpecialization = false
+
+    if C_SpecializationInfo and C_SpecializationInfo.GetTalentInfo then
+        for specializationIndex = 1, 3 do
+            for talentIndex = 1, 40 do
+                local talentInfo = C_SpecializationInfo.GetTalentInfo({
+                    specializationIndex = specializationIndex,
+                    talentIndex = talentIndex,
+                    isInspect = false,
+                    isPet = false,
+                })
+                if talentInfo then
+                    if talentInfo.name == "Improved Slam" then
+                        improvedSlamRank = talentInfo.rank or 0
+                    elseif talentInfo.name == "Sweeping Strikes" then
+                        hasSweepingStrikesTalent = (talentInfo.rank or 0) > 0 or talentInfo.known
+                    elseif talentInfo.name == "Dual Wield Specialization" then
+                        hasDualWieldSpecialization = (talentInfo.rank or 0) > 0
+                    end
+                end
+            end
+        end
+    end
+
+    warriorCapabilities.improvedSlamRank = improvedSlamRank
+    warriorCapabilities.hasImprovedSlam2 = improvedSlamRank >= 2
+    warriorCapabilities.hasSweepingStrikes = hasSweepingStrikesTalent
+        or IsPlayerSpell(12328)
+        or IsSpellKnown(12328)
+        or GetSpellBookItemInfo("Sweeping Strikes") ~= nil
+    warriorCapabilities.hasBloodthirst = IsAnyPlayerSpellKnown(BLOODTHIRST_SPELL_IDS)
+    warriorCapabilities.hasMortalStrike = IsPlayerSpell(12294)
+        or IsSpellKnown(12294)
+        or GetSpellBookItemInfo("Mortal Strike") ~= nil
+    warriorCapabilities.hasSlam = IsPlayerSpell(1464)
+        or IsSpellKnown(1464)
+        or GetSpellBookItemInfo("Slam") ~= nil
+    warriorCapabilities.hasDualWieldSpecialization = hasDualWieldSpecialization
+end
+
+local warriorTalentFrame = CreateFrame("Frame")
+warriorTalentFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+warriorTalentFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
+warriorTalentFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+warriorTalentFrame:RegisterEvent("CHARACTER_POINTS_CHANGED")
+warriorTalentFrame:SetScript("OnEvent", RefreshWarriorCapabilities)
+RefreshWarriorCapabilities()
+
 local function IsDualWieldSpec()
-    local _, _, _, _, pts = GetTalentInfo(2, 17) -- Fury tree, Dual Wield Specialization
-    return (pts and pts >= 1)
+    return warriorCapabilities.hasDualWieldSpecialization
 end
 
 local function HasTwoHandEquipped()
@@ -443,6 +517,16 @@ local function HasAttackPowerDebuff(unit)
         or jungle.Debuff('Demoralizing Roar', unit) 
         or jungle.Debuff('Curse of Weakness', unit) 
         or jungle.Debuff('Screech', unit)
+end
+
+local function CanUseImprovedSlam()
+    return warriorCapabilities.hasImprovedSlam2
+        and warriorCapabilities.hasSlam
+        and HasTwoHandEquipped()
+end
+
+local function CanApplyWarriorTargetDebuff(unit)
+    return unit and UnitExists(unit) and not IsTotemUnit(unit)
 end
 
 local function ReadyCastSpellNoGCD(spell, target, allowResourcePending)
@@ -482,6 +566,56 @@ local function IsSpellOffRealCooldown(spell)
 
     local _, gcdDuration = jungle.GetGCDValues()
     return gcdDuration and gcdDuration > 0 and duration <= (gcdDuration + 0.05)
+end
+
+local function GetWarriorGapCloserDecision(target, readySpell)
+    readySpell = readySpell or ReadyCastSpellNoGCD
+
+    local inCombat = UnitAffectingCombat("player")
+    local rage = UnitPower("player", 1)
+    local stance = GetShapeshiftForm()
+    local inMeleeRange = jungle.inMeleeRange(target)
+    local chargeInRange = C_Spell.IsSpellInRange("Charge", target) == true
+    local interceptInRange = C_Spell.IsSpellInRange("Intercept", target) == true
+    local inGapCloserRange = (chargeInRange or interceptInRange) and not inMeleeRange
+    local chargeOnCD = jungle.SpellOnCD("Charge")
+    local interceptOnCD = jungle.SpellOnCD("Intercept")
+
+    local wantCharge = not inCombat and chargeInRange and not inMeleeRange and not chargeOnCD
+    if stance == 3 and rage >= 10 and not interceptOnCD then
+        wantCharge = false
+    end
+
+    local chargeStart = GetSpellCooldown("Charge")
+    local recentlyCharged = chargeStart and chargeStart > 0 and (GetTime() - chargeStart) <= 2
+    local interceptStart = GetSpellCooldown("Intercept")
+    local recentlyIntercepted = interceptStart and interceptStart > 0 and (GetTime() - interceptStart) <= 2
+    local wantIntercept = (
+        (inCombat or chargeOnCD or (stance == 3 and rage >= 10))
+        and not recentlyCharged
+        and interceptInRange
+        and not inMeleeRange
+        and not interceptOnCD
+    )
+
+    return {
+        inCombat = inCombat,
+        rage = rage,
+        stance = stance,
+        inMeleeRange = inMeleeRange,
+        inGapCloserRange = inGapCloserRange,
+        chargeOnCD = chargeOnCD,
+        interceptOnCD = interceptOnCD,
+        chargeStart = chargeStart,
+        recentlyCharged = recentlyCharged,
+        recentlyIntercepted = recentlyIntercepted,
+        wantCharge = wantCharge,
+        wantIntercept = wantIntercept,
+        useCharge = wantCharge and stance == 1 and readySpell('Charge', target),
+        useBattleStanceForCharge = wantCharge and stance ~= 1 and readySpell('Battle Stance'),
+        useIntercept = wantIntercept and stance == 3 and readySpell('Intercept', target),
+        useBerserkerStanceForIntercept = wantIntercept and stance ~= 3 and readySpell('Berserker Stance'),
+    }
 end
 
 -- ============================================================================
@@ -538,11 +672,12 @@ local armsPveHoldBattleForThunderClap = false
 local armsPveHoldBattleForThunderClapGUID = nil
 local armsPveHoldBattleForThunderClapThread = nil
 local armsPveSunderApplicationTimes = {}
-local SLAM_AFTERSWING_WINDOW = 0.55
+local armsSweepingStrikesCastGraceUntil = 0
+local SLAM_AFTERSWING_WINDOW = 1.15
 local SLAM_GAP_CLOSER_AFTERSWING_WINDOW = 1.15
 local SLAM_GAP_CLOSER_EVENT_SKEW = 0.75
 local SLAM_STATIONARY_SPEED_MAX = 0.1
-local SLAM_PRE_SWING_BUFFER = 0.15
+local SLAM_PRE_SWING_BUFFER = 0.1
 local SLAM_EXPECTED_SWING_RAGE = 15
 local SLAM_GAP_CLOSER_WAIT_TIMEOUT = 5
 local HEROIC_STRIKE_RAGE_COST = 15
@@ -559,6 +694,14 @@ local ARMS_PVE_DEMORALIZING_SHOUT_REFRESH_REMAINING = 5
 local ARMS_PVE_SUNDER_AURA_SETTLE_TIME = 1.5
 local PIERCING_HOWL_AOE_INTERVAL = 5
 local OVERPOWER_DODGE_WINDOW = 6
+
+local function GetImprovedSlamRageThreshold(isAoE)
+    if not isAoE then return ARMS_PVE_SLAM_RAGE_COST end
+    if warriorCapabilities.hasSweepingStrikes and IsSpellOffRealCooldown("Sweeping Strikes") then
+        return ARMS_PVE_RAGE_DUMP_OVERFLOW
+    end
+    return ARMS_PVE_SWEEPING_MS_RAGE_THRESHOLD
+end
 
 -- ============================================================================
 -- ARMS PVE DIAGNOSTICS
@@ -1194,6 +1337,7 @@ overpowerTracker:SetScript("OnEvent", function(_, event, unit, castGUID, spellID
         armsPveHoldBattleForThunderClapGUID = nil
         armsPveHoldBattleForThunderClapThread = nil
         armsPveSunderApplicationTimes = {}
+        armsSweepingStrikesCastGraceUntil = 0
         return
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         if unit == "player" and spellID then
@@ -1207,6 +1351,11 @@ overpowerTracker:SetScript("OnEvent", function(_, event, unit, castGUID, spellID
                 armsPveHoldBattleForThunderClap = false
                 armsPveHoldBattleForThunderClapGUID = nil
                 armsPveHoldBattleForThunderClapThread = nil
+            elseif spellName == "Sweeping Strikes" then
+                -- UNIT_AURA may arrive a frame after the successful cast. Keep
+                -- Thread 3 ownership through that handoff so normal Arms/Fury
+                -- cannot spend the burst before the buff cache catches up.
+                armsSweepingStrikesCastGraceUntil = now + 1
             end
         end
         return
@@ -1428,6 +1577,7 @@ function jungle.warriorTank(_target)
     local inCombat = UnitAffectingCombat("player")
     local rage = UnitPower("player", 1)
     local stance = GetShapeshiftForm()
+    local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
     
     -- 1. TALENT DETECTION
     local hasDevastate = IsPlayerSpell(20243) or IsSpellKnown(20243) or IsPlayerSpell(29888) or IsSpellKnown(29888) or IsPlayerSpell(30016) or IsSpellKnown(30016) or IsPlayerSpell(30022) or IsSpellKnown(30022) or GetSpellBookItemInfo("Devastate")
@@ -1466,7 +1616,7 @@ function jungle.warriorTank(_target)
     local nameplates = C_NamePlate.GetNamePlates()
     for i = 1, #nameplates do
         local unit = GetNameplateUnitToken(nameplates[i], i)
-        if unit and UnitCanAttack("player", unit) and CheckInteractDistance(unit, 3) then
+        if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
             local unitHPMax = UnitHealthMax(unit)
             local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
             if hpPercent >= 20 then
@@ -1488,7 +1638,7 @@ function jungle.warriorTank(_target)
         end
     end
 
-    if enemiesNearby < 1 and CheckInteractDistance(_target, 3) then
+    if enemiesNearby < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
         enemiesNearby = 1
         if UnitIsUnit(_target.."target", "player") then
             enemiesTargetingMe = enemiesTargetingMe + 1
@@ -1520,7 +1670,7 @@ function jungle.warriorTank(_target)
     local useZerkStanceForIntercept = (wantIntercept and stance ~= 3 and jungle.ReadyCastSpell('Berserker Stance'))
 
     local preZerkTC = false
-    if useZerkStanceForIntercept and stance == 1 and enemiesNearby > 0 and CheckInteractDistance(_target, 3) then
+    if canApplyTargetDebuff and useZerkStanceForIntercept and stance == 1 and enemiesNearby > 0 and CheckInteractDistance(_target, 3) then
         if jungle.ReadyCastSpell('Thunder Clap') then
             preZerkTC = true
             useZerkStanceForIntercept = false
@@ -1550,7 +1700,7 @@ function jungle.warriorTank(_target)
 
     local targetOfTarget = _target .. "target"
     local needsTaunt = false
-    if inCombat and UnitExists(targetOfTarget) and not UnitIsUnit("player", targetOfTarget) then
+    if canApplyTargetDebuff and inCombat and UnitExists(targetOfTarget) and not UnitIsUnit("player", targetOfTarget) then
         local isAnotherTank = (UnitGroupRolesAssigned(targetOfTarget) == 'TANK') or (GetPartyAssignment("MAINTANK", targetOfTarget) == true)
         if not isAnotherTank then
             needsTaunt = true
@@ -1703,7 +1853,7 @@ function jungle.warriorTank(_target)
     warriorTankCache[1][3] = useCharge
     warriorTankCache[2][3] = useBattleStanceForCharge
     warriorTankCache[3][3] = useIntercept
-    warriorTankCache[4][3] = preZerkTC
+    warriorTankCache[4][3] = canApplyTargetDebuff and preZerkTC
     warriorTankCache[5][3] = useZerkStanceForIntercept
     
     warriorTankCache[6][3] = preDefBR
@@ -1714,24 +1864,24 @@ function jungle.warriorTank(_target)
     warriorTankCache[10][3] = useCommandingShout
     warriorTankCache[11][3] = useBattleShout
     warriorTankCache[12][3] = useShieldBlock
-    warriorTankCache[13][3] = (needsTaunt and jungle.ReadyCastSpell('Taunt', _target))
+    warriorTankCache[13][3] = (canApplyTargetDebuff and needsTaunt and jungle.ReadyCastSpell('Taunt', _target))
 
     if allowAoEDemoPriority then
         warriorTankCache[14][2] = 'Demoralizing Shout'
-        warriorTankCache[14][3] = jungle.ReadyCastSpell('Demoralizing Shout')
+        warriorTankCache[14][3] = canApplyTargetDebuff and jungle.ReadyCastSpell('Demoralizing Shout')
     elseif allowAoETCPriority then
         warriorTankCache[14][2] = 'Thunder Clap'
-        warriorTankCache[14][3] = CheckInteractDistance(_target, 3) and jungle.ReadyCastSpell('Thunder Clap')
+        warriorTankCache[14][3] = canApplyTargetDebuff and CheckInteractDistance(_target, 3) and jungle.ReadyCastSpell('Thunder Clap')
     end
 
     warriorTankCache[15][3] = (allowCleavePriority and jungle.ReadyCastSpell('Cleave', _target))
     warriorTankCache[16][3] = (allowSB and jungle.ReadyCastSpell('Shield Bash', _target) and jungle.isCasting(_target))
     warriorTankCache[17][3] = (allowHeavyHitter and heavyHitter and jungle.ReadyCastSpell(heavyHitter, _target) or false)
-    warriorTankCache[18][3] = (allowSunderPriority and jungle.ReadyCastSpell(sunderAction, _target))
+    warriorTankCache[18][3] = (canApplyTargetDebuff and allowSunderPriority and jungle.ReadyCastSpell(sunderAction, _target))
     warriorTankCache[19][3] = (allowRevenge and jungle.ReadyCastSpell('Revenge', _target))
-    warriorTankCache[20][3] = (allowFillDemo and jungle.ReadyCastSpell('Demoralizing Shout'))
-    warriorTankCache[21][3] = (allowFillTC and CheckInteractDistance(_target, 3) and jungle.ReadyCastSpell('Thunder Clap'))
-    warriorTankCache[22][3] = (allowSunderStack and jungle.ReadyCastSpell(sunderAction, _target))
+    warriorTankCache[20][3] = (canApplyTargetDebuff and allowFillDemo and jungle.ReadyCastSpell('Demoralizing Shout'))
+    warriorTankCache[21][3] = (canApplyTargetDebuff and allowFillTC and CheckInteractDistance(_target, 3) and jungle.ReadyCastSpell('Thunder Clap'))
+    warriorTankCache[22][3] = (canApplyTargetDebuff and allowSunderStack and jungle.ReadyCastSpell(sunderAction, _target))
 
     local mainhandTimeRemaining = jungle.SwingTimer:GetTimeRemaining()
     local isAttacking = C_Spell.IsCurrentSpell(6603) or false
@@ -1955,6 +2105,7 @@ function jungle.warriorFury(_target)
         local inCombat = UnitAffectingCombat("player")
         local rage = UnitPower("player", 1)
         local stance = GetShapeshiftForm()
+        local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
         
         -- ENEMY COUNTING IN AOE RANGE (PVP: Players/Pets, No Totems)
         local enemiesNearby = 0
@@ -1963,32 +2114,28 @@ function jungle.warriorFury(_target)
         local nameplates = C_NamePlate.GetNamePlates()
         for i = 1, #nameplates do
             local unit = GetNameplateUnitToken(nameplates[i], i)
-            if unit and UnitCanAttack("player", unit) and CheckInteractDistance(unit, 3) then
+            if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
                 local isPlayer = UnitIsPlayer(unit)
                 if isPlayer or UnitPlayerControlled(unit) then
-                    if UnitCreatureType(unit) ~= "Totem" then
-                        enemiesNearby = enemiesNearby + 1
-                        if isPlayer then
-                            enemyPlayersNearby = enemyPlayersNearby + 1
-                        end
-                        if UnitIsUnit(unit.."target", "player") then
-                            enemiesTargetingMe = enemiesTargetingMe + 1
-                        end
+                    enemiesNearby = enemiesNearby + 1
+                    if isPlayer then
+                        enemyPlayersNearby = enemyPlayersNearby + 1
+                    end
+                    if UnitIsUnit(unit.."target", "player") then
+                        enemiesTargetingMe = enemiesTargetingMe + 1
                     end
                 end
             end
         end
 
-        if enemiesNearby < 1 and CheckInteractDistance(_target, 3) then
+        if enemiesNearby < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
             if UnitIsPlayer(_target) or UnitPlayerControlled(_target) then
-                if UnitCreatureType(_target) ~= "Totem" then
-                    enemiesNearby = 1
-                    if UnitIsPlayer(_target) then
-                        enemyPlayersNearby = 1
-                    end
-                    if UnitIsUnit(_target.."target", "player") then
-                        enemiesTargetingMe = enemiesTargetingMe + 1
-                    end
+                enemiesNearby = 1
+                if UnitIsPlayer(_target) then
+                    enemyPlayersNearby = 1
+                end
+                if UnitIsUnit(_target.."target", "player") then
+                    enemiesTargetingMe = enemiesTargetingMe + 1
                 end
             end
         end
@@ -2024,7 +2171,7 @@ function jungle.warriorFury(_target)
         
         local btReady = (jungle.IsSpellReadyIgnoreGCD(furyStrike))
         local executeReady = (targetHPPercentLocal < 20)
-        local tcReady = (jungle.IsSpellReadyIgnoreGCD("Thunder Clap"))
+        local tcReady = canApplyTargetDebuff and jungle.IsSpellReadyIgnoreGCD("Thunder Clap")
         
         local delayZerkForBT = (stance == 1 and rage > 10 and btReady and inMeleeLocal)
         local delayZerkForExecute = (stance == 1 and rage > 10 and executeReady and inMeleeLocal)
@@ -2133,7 +2280,7 @@ function jungle.warriorFury(_target)
         warriorFuryPvPCache[7][3] = useIntercept
         warriorFuryPvPCache[8][3] = preZerkExecute
         warriorFuryPvPCache[9][3] = preZerkBT
-        warriorFuryPvPCache[10][3] = preZerkTC
+        warriorFuryPvPCache[10][3] = canApplyTargetDebuff and preZerkTC
         warriorFuryPvPCache[11][3] = useZerkStance or useZerkStanceForIntercept
         warriorFuryPvPCache[12][3] = useBloodrage
         warriorFuryPvPCache[13][3] = useBerserkerRage
@@ -2153,7 +2300,7 @@ function jungle.warriorFury(_target)
         warriorFuryPvPCache[16][3] = (isAoE and jungle.ReadyCastSpell('Sweeping Strikes'))
         warriorFuryPvPCache[17][3] = (inMeleeRange and jungle.ReadyCastSpell('Victory Rush', _target))
         warriorFuryPvPCache[18][3] = (canExecute and jungle.ReadyCastSpell('Execute', _target))
-        warriorFuryPvPCache[19][3] = (needsSunderPriority and inMeleeRange and jungle.ReadyCastSpell('Sunder Armor', _target))
+        warriorFuryPvPCache[19][3] = (canApplyTargetDebuff and needsSunderPriority and inMeleeRange and jungle.ReadyCastSpell('Sunder Armor', _target))
         
         local btOnCD = jungle.SpellOnCD(furyStrike)
         local wwOnCD = jungle.SpellOnCD("Whirlwind")
@@ -2358,6 +2505,7 @@ function jungle.warriorFury(_target)
     local inCombat = UnitAffectingCombat("player")
     local rage = UnitPower("player", 1)
     local stance = GetShapeshiftForm()
+    local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
     
     -- ENEMY COUNTING IN AOE RANGE
     local enemiesNearby = 0
@@ -2367,7 +2515,7 @@ function jungle.warriorFury(_target)
     local nameplates = C_NamePlate.GetNamePlates()
     for i = 1, #nameplates do
         local unit = GetNameplateUnitToken(nameplates[i], i)
-        if unit and UnitCanAttack("player", unit) and CheckInteractDistance(unit, 3) then
+        if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
             enemiesNearby = enemiesNearby + 1
             local unitHPMax = UnitHealthMax(unit)
             local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
@@ -2383,7 +2531,7 @@ function jungle.warriorFury(_target)
         end
     end
 
-    if enemiesNearby < 1 and CheckInteractDistance(_target, 3) then
+    if enemiesNearby < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
         enemiesNearby = 1
         local targetHP = UnitHealth(_target)
         local targetHPMax = UnitHealthMax(_target)
@@ -2395,7 +2543,7 @@ function jungle.warriorFury(_target)
             enemiesTargetingMe = enemiesTargetingMe + 1
         end
     else
-        if enemiesNearbyAbove20 < 1 and CheckInteractDistance(_target, 3) then
+        if enemiesNearbyAbove20 < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
             local targetHP = UnitHealth(_target)
             local targetHPMax = UnitHealthMax(_target)
             local targetHPPercent = targetHPMax > 0 and (targetHP / targetHPMax * 100) or 100
@@ -2528,7 +2676,7 @@ function jungle.warriorFury(_target)
     
     local btReady = (not jungle.SpellOnCD(furyStrike))
     local executeReady = (targetHPPercentLocal < 20)
-    local tcReady = (not jungle.SpellOnCD("Thunder Clap"))
+    local tcReady = canApplyTargetDebuff and not jungle.SpellOnCD("Thunder Clap")
     
     local delayZerkForBT = (stance == 1 and rage > 10 and btReady and inMeleeLocal)
     local delayZerkForExecute = (enemiesNearby < 2 and stance == 1 and rage > 10 and executeReady and inMeleeLocal)
@@ -2649,7 +2797,7 @@ function jungle.warriorFury(_target)
     warriorFuryCache[19][3] = useIntercept
     warriorFuryCache[20][3] = preZerkExecute
     warriorFuryCache[21][3] = preZerkBT
-    warriorFuryCache[22][3] = preZerkTC
+    warriorFuryCache[22][3] = canApplyTargetDebuff and preZerkTC
     warriorFuryCache[23][3] = useZerkStance or useZerkStanceForIntercept
     warriorFuryCache[34][3] = useOverpower
     warriorFuryCache[24][3] = useBloodrage
@@ -2732,9 +2880,9 @@ function jungle.warriorFury(_target)
     -- --- UTILITY / SHOUTS / LOWER PRIORITIES ---
     warriorFuryCache[27][3] = (inCombat and rage >= 32 and jungle.ReadyCastSpell('Rampage') and not jungle.unitCacheBuff('player', 'Rampage', nil, 5))
     warriorFuryCache[28][3] = (inMeleeRange and jungle.ReadyCastSpell('Victory Rush', _target))
-    warriorFuryCache[29][3] = (needsSunderPriority and inMeleeRange and jungle.ReadyCastSpell('Sunder Armor', _target))
-    warriorFuryCache[30][3] = (needsDemoAoE and jungle.ReadyCastSpell('Demoralizing Shout'))
-    warriorFuryCache[31][3] = (needsDemoST and jungle.ReadyCastSpell('Demoralizing Shout'))
+    warriorFuryCache[29][3] = (canApplyTargetDebuff and needsSunderPriority and inMeleeRange and jungle.ReadyCastSpell('Sunder Armor', _target))
+    warriorFuryCache[30][3] = (canApplyTargetDebuff and needsDemoAoE and jungle.ReadyCastSpell('Demoralizing Shout'))
+    warriorFuryCache[31][3] = (canApplyTargetDebuff and needsDemoST and jungle.ReadyCastSpell('Demoralizing Shout'))
 
     local _, _, _, latencyHome = GetNetStats()
     local latency = (latencyHome or 50) / 1000
@@ -2943,10 +3091,11 @@ local warriorArmsPvPCache = {
 
 
 local warriorArmsPveMaintenanceCache = {
-    [1] = {'Thunder Clap Stance', 'Battle Stance', false, 1, 0},
-    [2] = {'Refresh Thunder Clap', 'Thunder Clap', false, 1, 0},
-    [3] = {'Apply Sunder Armor', 'Sunder Armor', false, 1, 0},
+    [1] = {'Initial Sunder Armor', 'Sunder Armor', false, 1, 0},
+    [2] = {'Thunder Clap Stance', 'Battle Stance', false, 1, 0},
+    [3] = {'Refresh Thunder Clap', 'Thunder Clap', false, 1, 0},
     [4] = {'Refresh Demoralizing Shout', 'Demoralizing Shout', false, 1, 0},
+    [5] = {'Build Sunder Armor', 'Sunder Armor', false, 1, 0},
 }
 
 function jungle.warriorArmsPveMaintenance(_target)
@@ -2961,7 +3110,8 @@ function jungle.warriorArmsPveMaintenance(_target)
     or not UnitCanAttack("player", _target)
     or UnitIsDeadOrGhost(_target)
     or UnitIsPlayer(_target)
-    or UnitPlayerControlled(_target) then
+    or UnitPlayerControlled(_target)
+    or not CanApplyWarriorTargetDebuff(_target) then
         return warriorArmsPveMaintenanceCache
     end
 
@@ -2971,9 +3121,6 @@ function jungle.warriorArmsPveMaintenance(_target)
     local demoralizingShoutRemaining = GetDebuffRemaining(_target, 'Demoralizing Shout')
     local stance = GetShapeshiftForm()
 
-    -- Apply Sunder once to an eligible target; do not spend further Thread 1
-    -- GCDs stacking it. If the aura expires, make that target eligible for
-    -- one fresh application again.
     local targetGUID = UnitGUID(_target)
     if armsPveHoldBattleForThunderClap
     and armsPveHoldBattleForThunderClapGUID ~= targetGUID then
@@ -2988,20 +3135,23 @@ function jungle.warriorArmsPveMaintenance(_target)
         armsPveSunderApplicationTimes[targetGUID] = nil
         sunderAppliedAt = nil
     end
-    local useSunder = (
+    local recentlyAppliedSunder = sunderAppliedAt
+        and (GetTime() - sunderAppliedAt) < ARMS_PVE_SUNDER_AURA_SETTLE_TIME
+    local canCastSunder = (
         inMeleeRange
         and exposeRemaining <= 0
-        and (
-            (sunderCount < 5 and not sunderAppliedAt)
-            or (sunderCount > 0 and sunderRemaining > 0 and sunderRemaining < 5)
-        )
+        and not recentlyAppliedSunder
         and ReadyCastSpellNoGCD('Sunder Armor', _target)
     )
+    local useInitialSunder = canCastSunder and sunderCount == 0
+    local useStackSunder = canCastSunder
+        and sunderCount > 0
+        and (sunderCount < 5 or (sunderRemaining > 0 and sunderRemaining <= 5))
 
     -- Keep Thunder Clap up.  It has a dedicated stance action so the next
     -- maintenance tick casts it immediately after entering Battle Stance.
     local thunderClapNeeded = (
-        thunderClapRemaining <= 5 -- Refresh if missing or under 5s
+        thunderClapRemaining <= 5
         and CheckInteractDistance(_target, 3)
     )
     if thunderClapNeeded then
@@ -3025,18 +3175,17 @@ function jungle.warriorArmsPveMaintenance(_target)
         and ReadyCastSpellNoGCD('Battle Stance')
     )
 
-    -- Refresh Demo aggressively once it is missing or within its final five
-    -- seconds. Thunder Clap and one Sunder application stay ahead of it.
     local useDemoralizingShout = (
         inMeleeRange
-        and demoralizingShoutRemaining <= 5 -- Refresh if missing or under 5s
+        and demoralizingShoutRemaining <= 5
         and ReadyCastSpellNoGCD('Demoralizing Shout')
     )
 
-    warriorArmsPveMaintenanceCache[1][3] = useBattleStanceForThunderClap
-    warriorArmsPveMaintenanceCache[2][3] = useThunderClap
-    warriorArmsPveMaintenanceCache[3][3] = useSunder
+    warriorArmsPveMaintenanceCache[1][3] = useInitialSunder
+    warriorArmsPveMaintenanceCache[2][3] = useBattleStanceForThunderClap
+    warriorArmsPveMaintenanceCache[3][3] = useThunderClap
     warriorArmsPveMaintenanceCache[4][3] = useDemoralizingShout
+    warriorArmsPveMaintenanceCache[5][3] = useStackSunder
     return warriorArmsPveMaintenanceCache
 end
 
@@ -3082,10 +3231,8 @@ function jungle.warriorArms(_target)
         return equipCache2H
     end
 
-    local hasMortalStrike = IsPlayerSpell(12294) or IsSpellKnown(12294) or GetSpellBookItemInfo("Mortal Strike")
-    local hasSlam = IsPlayerSpell(1464) or IsSpellKnown(1464) or GetSpellBookItemInfo("Slam")
-
-    if not hasSlam then return emptyCache end
+    local hasMortalStrike = warriorCapabilities.hasMortalStrike
+    local canUseImprovedSlam = CanUseImprovedSlam()
 
     if not UnitExists(_target) or not UnitCanAttack("player", _target) or UnitIsDeadOrGhost(_target) then 
         return emptyCache 
@@ -3102,6 +3249,7 @@ function jungle.warriorArms(_target)
         local inCombat = UnitAffectingCombat("player")
         local rage = UnitPower("player", 1)
         local stance = GetShapeshiftForm()
+        local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
         
         -- PVP MODE COUNTING: only hostile players and player-controlled pets.
         -- Totems, dead units, and ordinary NPCs must never switch the routine
@@ -3110,19 +3258,17 @@ function jungle.warriorArms(_target)
         local nameplates = C_NamePlate.GetNamePlates()
         for i = 1, #nameplates do
             local unit = GetNameplateUnitToken(nameplates[i], i)
-            if unit and UnitCanAttack("player", unit) and not UnitIsDeadOrGhost(unit) and CheckInteractDistance(unit, 3) then
+            if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
                 local isPlayer = UnitIsPlayer(unit)
                 if isPlayer or UnitPlayerControlled(unit) then
-                    if UnitCreatureType(unit) ~= "Totem" then
-                        pvpCombatantsNearby = pvpCombatantsNearby + 1
-                    end
+                    pvpCombatantsNearby = pvpCombatantsNearby + 1
                 end
             end
         end
 
-        if pvpCombatantsNearby < 1 and CheckInteractDistance(_target, 3) then
+        if pvpCombatantsNearby < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
             if UnitIsPlayer(_target) or UnitPlayerControlled(_target) then
-                if not UnitIsDeadOrGhost(_target) and UnitCreatureType(_target) ~= "Totem" then
+                if not UnitIsDeadOrGhost(_target) then
                     pvpCombatantsNearby = 1
                 end
             end
@@ -3131,29 +3277,18 @@ function jungle.warriorArms(_target)
         local isAoE = (pvpCombatantsNearby >= 2)
         local isSingle = not isAoE
 
-        local inChargeRange = (CheckInteractDistance(_target, 1) and not jungle.inMeleeRange(_target))
-        
-        local chargeOnCD = jungle.SpellOnCD("Charge")
-        local interceptOnCD = jungle.SpellOnCD("Intercept")
-
-        local wantCharge = (not inCombat and inChargeRange and not chargeOnCD)
-        if stance == 3 and rage >= 10 and not interceptOnCD then
-            wantCharge = false
-        end
-        
-        local chargeStart, chargeDur = GetSpellCooldown("Charge")
-        local recentlyCharged = (chargeStart and chargeStart > 0 and (GetTime() - chargeStart) <= 2)
-
-        local interceptStart, interceptDur = GetSpellCooldown("Intercept")
-        local recentlyIntercepted = (interceptStart and interceptStart > 0 and (GetTime() - interceptStart) <= 2)
+        local gapCloser = GetWarriorGapCloserDecision(_target, jungle.ReadyCastSpell)
+        local inChargeRange = gapCloser.inGapCloserRange
+        local chargeOnCD = gapCloser.chargeOnCD
+        local interceptOnCD = gapCloser.interceptOnCD
+        local wantCharge = gapCloser.wantCharge
+        local recentlyCharged = gapCloser.recentlyCharged
+        local recentlyIntercepted = gapCloser.recentlyIntercepted
         local justEngaged = (recentlyCharged or recentlyIntercepted)
-
-        local wantIntercept = ((inCombat or chargeOnCD or (stance == 3 and rage >= 10)) and not recentlyCharged and inChargeRange and not interceptOnCD)
-
-        local useCharge = (wantCharge and stance == 1 and jungle.ReadyCastSpell('Charge', _target))
-        local useBattleStanceForCharge = (wantCharge and stance ~= 1 and jungle.ReadyCastSpell('Battle Stance'))
-
-        local useIntercept = (wantIntercept and stance == 3 and jungle.ReadyCastSpell('Intercept', _target))
+        local wantIntercept = gapCloser.wantIntercept
+        local useCharge = gapCloser.useCharge
+        local useBattleStanceForCharge = gapCloser.useBattleStanceForCharge
+        local useIntercept = gapCloser.useIntercept
         if useCharge or useIntercept then
             RecordArmsGapCloser(GetTime(), true)
         end
@@ -3189,9 +3324,9 @@ function jungle.warriorArms(_target)
         end
         local playerSpeed = GetUnitSpeed("player") or 0
         local stationaryForSlam = playerSpeed <= SLAM_STATIONARY_SPEED_MAX
-        local slamRageThreshold = isAoE and 60 or 15
+        local slamRageThreshold = GetImprovedSlamRageThreshold(isAoE)
         local hasSlamRageNow = rage >= slamRageThreshold
-        local canSlamAfterSwing = (isAutoAttacking and isAfterswingWindow and stationaryForSlam and not isCastingSlam and ReadyCastSpellNoGCD('Slam'))
+        local canSlamAfterSwing = (canUseImprovedSlam and isAutoAttacking and isAfterswingWindow and stationaryForSlam and not isCastingSlam and ReadyCastSpellNoGCD('Slam'))
         -- PvP Slam mirrors the PvE after-swing priority: if the swing window is
         -- open, use it before ordinary core damage.
         local useSlamWindow = (canSlamAfterSwing and inMeleeRange and hasSlamRageNow)
@@ -3243,7 +3378,7 @@ function jungle.warriorArms(_target)
             end
         end
 
-        local useZerkStanceForIntercept = (wantIntercept and stance ~= 3 and jungle.ReadyCastSpell('Berserker Stance'))
+        local useZerkStanceForIntercept = gapCloser.useBerserkerStanceForIntercept
         
         -- OVERPOWER LOGIC
         local targetGUID = UnitGUID(_target)
@@ -3315,7 +3450,8 @@ function jungle.warriorArms(_target)
         local usePiercingHowl = (needsSlow and not useHamstring and canUseAoEPiercingHowl and jungle.ReadyCastSpell('Piercing Howl'))
         local thunderClapRemaining = GetDebuffRemaining(_target, 'Thunder Clap')
         local useThunderClap = (
-            stance == 1
+            canApplyTargetDebuff
+            and stance == 1
             and (targetClass == "ROGUE" or targetClass == "WARRIOR" or targetClass == "HUNTER")
             and CheckInteractDistance(_target, 3)
             and thunderClapRemaining <= 0
@@ -3379,8 +3515,8 @@ function jungle.warriorArms(_target)
             sunderRemaining = 999
         end
         local canUseSunderWindow = (msOnRealCooldown and wwOnRealCooldown and not isExecutePhase and not waitRageForMain)
-        local useUpdateSunder = (canUseSunderWindow and sunderCountAura > 0 and sunderRemaining > 0 and sunderRemaining < 5 and inMeleeRange and not holdGCDForSlam and jungle.ReadyCastSpell('Sunder Armor', _target))
-        local useSunderFiller = (canUseSunderWindow and sunderCountAura < 5 and inMeleeRange and not holdGCDForSlam and jungle.ReadyCastSpell('Sunder Armor', _target))
+        local useUpdateSunder = (canApplyTargetDebuff and canUseSunderWindow and sunderCountAura > 0 and sunderRemaining > 0 and sunderRemaining < 5 and inMeleeRange and not holdGCDForSlam and jungle.ReadyCastSpell('Sunder Armor', _target))
+        local useSunderFiller = (canApplyTargetDebuff and canUseSunderWindow and sunderCountAura < 5 and inMeleeRange and not holdGCDForSlam and jungle.ReadyCastSpell('Sunder Armor', _target))
 
         warriorArmsPvPCache[1][3] = doStopCasting
         warriorArmsPvPCache[2][3] = (useZerkStanceForPummel and not isCastingSlam)
@@ -3447,6 +3583,7 @@ function jungle.warriorArms(_target)
     MarkArmsPveDiagnosticsActive(_target, inCombat)
     local rage = UnitPower("player", 1)
     local stance = GetShapeshiftForm()
+    local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
     local targetHP = UnitHealth(_target)
     local targetHPMax = UnitHealthMax(_target)
     local targetHPPercent = targetHPMax > 0 and (targetHP / targetHPMax * 100) or 100
@@ -3460,7 +3597,7 @@ function jungle.warriorArms(_target)
     local nameplates = C_NamePlate.GetNamePlates()
     for i = 1, #nameplates do
         local unit = GetNameplateUnitToken(nameplates[i], i)
-        if unit and UnitCanAttack("player", unit) and CheckInteractDistance(unit, 3) and not UnitIsDeadOrGhost(unit) then
+        if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
             local unitHPMax = UnitHealthMax(unit)
             local hpPercent = unitHPMax > 0 and (UnitHealth(unit) / unitHPMax * 100) or 100
             enemiesNearby = enemiesNearby + 1
@@ -3483,7 +3620,7 @@ function jungle.warriorArms(_target)
         end
     end
 
-    if enemiesNearby < 1 and CheckInteractDistance(_target, 3) then
+    if enemiesNearby < 1 and IsEnemyNameplateEligibleForAoE(_target) and CheckInteractDistance(_target, 3) then
         enemiesNearby = 1
         if targetHPPercent > 20 then
             sweepingEnemiesNearby = 1
@@ -3496,26 +3633,19 @@ function jungle.warriorArms(_target)
     local isAoE = (enemiesNearby >= 2)
     local isSweepingAoE = (sweepingEnemiesNearby >= 2)
 
-    local inMeleeRange = jungle.inMeleeRange(_target)
-    local inChargeRange = (CheckInteractDistance(_target, 1) and not inMeleeRange)
-    local chargeOnCD = jungle.SpellOnCD("Charge")
-    local interceptOnCD = jungle.SpellOnCD("Intercept")
-
-    local wantCharge = (not inCombat and inChargeRange and not chargeOnCD)
-    if stance == 3 and rage >= 10 and not interceptOnCD then
-        wantCharge = false
-    end
-    
-    local chargeStart, chargeDur = GetSpellCooldown("Charge")
-    local recentlyCharged = (chargeStart and chargeStart > 0 and (GetTime() - chargeStart) <= 2)
-    
-    local wantIntercept = ((inCombat or chargeOnCD or (stance == 3 and rage >= 10)) and not recentlyCharged and inChargeRange and not interceptOnCD)
-
-    local useCharge = (wantCharge and stance == 1 and ReadyCastSpellNoGCD('Charge', _target))
-    local useBattleStanceForCharge = (wantCharge and stance ~= 1 and ReadyCastSpellNoGCD('Battle Stance'))
-
-    local useIntercept = (wantIntercept and stance == 3 and ReadyCastSpellNoGCD('Intercept', _target))
-    local useZerkStanceForIntercept = (wantIntercept and stance ~= 3 and ReadyCastSpellNoGCD('Berserker Stance'))
+    local gapCloser = GetWarriorGapCloserDecision(_target, ReadyCastSpellNoGCD)
+    local inMeleeRange = gapCloser.inMeleeRange
+    local inChargeRange = gapCloser.inGapCloserRange
+    local chargeOnCD = gapCloser.chargeOnCD
+    local interceptOnCD = gapCloser.interceptOnCD
+    local chargeStart = gapCloser.chargeStart
+    local wantCharge = gapCloser.wantCharge
+    local recentlyCharged = gapCloser.recentlyCharged
+    local wantIntercept = gapCloser.wantIntercept
+    local useCharge = gapCloser.useCharge
+    local useBattleStanceForCharge = gapCloser.useBattleStanceForCharge
+    local useIntercept = gapCloser.useIntercept
+    local useZerkStanceForIntercept = gapCloser.useBerserkerStanceForIntercept
 
     if useCharge or useIntercept then
         RecordArmsGapCloser(GetTime(), true)
@@ -3602,14 +3732,14 @@ function jungle.warriorArms(_target)
     local activeSlamWindow = armsLastMainhandWasGapCloserSwing and SLAM_GAP_CLOSER_AFTERSWING_WINDOW or SLAM_AFTERSWING_WINDOW
     local upcomingSlamWindow = waitingForGapCloserSwing and SLAM_GAP_CLOSER_AFTERSWING_WINDOW or SLAM_AFTERSWING_WINDOW
     local isAfterswingWindow = (hasPendingSlam and not waitingForGapCloserSwing and timeSinceSwing >= 0 and timeSinceSwing <= activeSlamWindow)
-    local armsTimeRemaining = (armsLastMainhandSwingTime > 0 and not waitingForGapCloserSwing) and jungle.SwingTimer:GetTimeRemaining() or 999
+    local armsTimeRemaining = (armsLastMainhandSwingTime > 0 and not waitingForGapCloserSwing) and jungle.SwingTimer:GetSlamTimeRemaining(armsLastMainhandSwingTime) or 999
     local isCastingSlam = (UnitCastingInfo("player") == "Slam")
     if isCastingSlam and armsSlamCastingSwingTime == 0 then
         RecordArmsSlamStart()
     end
     local playerSpeed = GetUnitSpeed("player") or 0
     local stationaryForSlam = playerSpeed <= SLAM_STATIONARY_SPEED_MAX
-    local slamRageThreshold = isAoE and 60 or 15
+    local slamRageThreshold = GetImprovedSlamRageThreshold(isAoE)
     local hasSlamRageNow = rage >= slamRageThreshold
     local gcdStart, gcdDuration = jungle.GetGCDValues()
     local expectedGCD = ((gcdDuration and gcdDuration > 0) and gcdDuration or 1.5)
@@ -3617,9 +3747,9 @@ function jungle.warriorArms(_target)
     local _, _, latencyHome = GetNetStats()
     local slamTimingSafety = math.max(SLAM_PRE_SWING_BUFFER, (latencyHome or 0) / 1000)
     local maxCoreGCDOverrunAfterSwing = math.max(0, upcomingSlamWindow - slamTimingSafety)
-    local canSlamAfterSwing = (isAutoAttacking and isAfterswingWindow and stationaryForSlam and not isCastingSlam and ReadyCastSpellNoGCD('Slam'))
+    local canSlamAfterSwing = (canUseImprovedSlam and isAutoAttacking and isAfterswingWindow and stationaryForSlam and not isCastingSlam and ReadyCastSpellNoGCD('Slam'))
     local useSlamWindow = (canSlamAfterSwing and inMeleeRange and hasSlamRageNow)
-    local reserveGapCloserMovingWindow = (armsLastMainhandWasGapCloserSwing and isAutoAttacking and isAfterswingWindow and not stationaryForSlam and not isCastingSlam and inMeleeRange and hasSlamRageNow and ReadyCastSpellNoGCD('Slam', nil, true))
+    local reserveGapCloserMovingWindow = (canUseImprovedSlam and armsLastMainhandWasGapCloserSwing and isAutoAttacking and isAfterswingWindow and not stationaryForSlam and not isCastingSlam and inMeleeRange and hasSlamRageNow and ReadyCastSpellNoGCD('Slam', nil, true))
     local reserveSlamWindow = useSlamWindow or reserveGapCloserMovingWindow
     local slamReserveLead = math.max(slamTimingSafety, expectedGCD - maxCoreGCDOverrunAfterSwing)
     local _, _, _, slamCastTimeMs = GetSpellInfo('Slam')
@@ -3631,8 +3761,8 @@ function jungle.warriorArms(_target)
     -- If there is not even one latency-safe opportunity to start a core action
     -- between Slam's GCD and the next reservation, switch to core-first mode.
     local useCoreFirstForHaste = (slamCoreStartWindow < slamTimingSafety)
-    local canReserveUpcomingSlam = ((isAutoAttacking or waitingForGapCloserSwing) and (stationaryForSlam or waitingForGapCloserSwing) and not isCastingSlam and inMeleeRange and (rage + SLAM_EXPECTED_SWING_RAGE) >= slamRageThreshold and ReadyCastSpellNoGCD('Slam', nil, true))
-    local reserveInitialSwingForSlam = (not waitingForGapCloserSwing and not recentlyConfirmedSwing and stationaryForSlam and not isCastingSlam and inMeleeRange and (rage + SLAM_EXPECTED_SWING_RAGE) >= slamRageThreshold and ReadyCastSpellNoGCD('Slam', nil, true))
+    local canReserveUpcomingSlam = (canUseImprovedSlam and (isAutoAttacking or waitingForGapCloserSwing) and (stationaryForSlam or waitingForGapCloserSwing) and not isCastingSlam and inMeleeRange and (rage + SLAM_EXPECTED_SWING_RAGE) >= slamRageThreshold and ReadyCastSpellNoGCD('Slam', nil, true))
+    local reserveInitialSwingForSlam = (canUseImprovedSlam and not waitingForGapCloserSwing and not recentlyConfirmedSwing and stationaryForSlam and not isCastingSlam and inMeleeRange and (rage + SLAM_EXPECTED_SWING_RAGE) >= slamRageThreshold and ReadyCastSpellNoGCD('Slam', nil, true))
     local reserveSlamPreSwing = (canReserveUpcomingSlam and not isAfterswingWindow and (waitingForGapCloserSwing or armsTimeRemaining <= slamReserveLead))
     local coreGCDWouldClipSlam = false
     if waitingForGapCloserSwing then
@@ -3659,14 +3789,15 @@ function jungle.warriorArms(_target)
     local ssOffRealCooldown = (isSweepingAoE and not hasSSBuff and IsSpellOffRealCooldown("Sweeping Strikes"))
     local ssSpellAvailable = (isSweepingAoE and ssReadyNoGCD and not hasSSBuff)
     local reserveSlamPreSwingCore = (canReserveUpcomingSlam and not isAfterswingWindow and coreGCDWouldClipSlam)
-    -- Normal speed: strict Slam-first. High haste: Slam cannot reserve the GCD;
-    -- it becomes filler after all actionable core abilities and rage dumps.
-    local holdGCDForSlam = isCastingSlam or (
+    -- Once the confirmed 1.15-second window is open, Slam always owns the GCD.
+    -- The legacy haste calculation remains useful only for planning before the
+    -- swing; it may never demote an already-eligible Slam.
+    local holdGCDForSlam = isCastingSlam or useSlamWindow or (
         not useThread2AoEPriority
         and not useCoreFirstForHaste
         and (reserveInitialSwingForSlam or reserveSlamWindow or reserveSlamPreSwing)
     )
-    local blockCoreForSlam = isCastingSlam or (
+    local blockCoreForSlam = isCastingSlam or useSlamWindow or (
         not useThread2AoEPriority
         and not useCoreFirstForHaste
         and (reserveInitialSwingForSlam or reserveSlamWindow or reserveSlamPreSwingCore)
@@ -3675,7 +3806,7 @@ function jungle.warriorArms(_target)
         useThread2AoEPriority
         and canSlamAfterSwing
         and inMeleeRange
-        and rage >= ARMS_PVE_SLAM_RAGE_COST
+        and hasSlamRageNow
     )
     local thread2AoEMSReady = (
         useThread2AoEPriority
@@ -3694,7 +3825,8 @@ function jungle.warriorArms(_target)
     -- Slam reservation is pending.
     local thunderClapRemaining = GetDebuffRemaining(_target, 'Thunder Clap')
     local usePriorityThunderClap = (
-        isAoE
+        canApplyTargetDebuff
+        and isAoE
         and stance == 1
         and inMeleeRange
         and thunderClapRemaining <= ARMS_PVE_THUNDER_CLAP_URGENT_REMAINING
@@ -3956,7 +4088,7 @@ function jungle.warriorArms(_target)
     end
 
     local sunderRemaining, sunderCountAura = GetDebuffRemaining(_target, 'Sunder Armor')
-    local useUpdateSunder = (sunderCountAura > 0 and sunderRemaining > 0 and sunderRemaining < 5)
+    local useUpdateSunder = (canApplyTargetDebuff and sunderCountAura > 0 and sunderRemaining > 0 and sunderRemaining < 5)
 
     local cancelQueuedAttack = (
         not isCastingSlam
@@ -3975,7 +4107,10 @@ function jungle.warriorArms(_target)
         or useHS
         or useCleave
     )
-    local prioritizeCoreOverSlam = useCoreFirstForHaste and not useLethalExecute and highHasteCoreReady
+    local prioritizeCoreOverSlam = useCoreFirstForHaste
+        and not useSlamWindow
+        and not useLethalExecute
+        and highHasteCoreReady
 
     local hasMyCommanding = jungle.unitCacheBuff('player', 'Commanding Shout', 'player')
     local hasMyCommandingSafe = jungle.unitCacheBuff('player', 'Commanding Shout', 'player', 5)
@@ -4046,7 +4181,7 @@ function jungle.warriorArms(_target)
     local usePriorityCleave = (
         not useThread2AoEPriority
         and useCleave
-        and (useCoreFirstForHaste or not useSlam)
+        and not useSlam
     )
     local priorityCleaveReady = (
         usePriorityCleave
@@ -4061,23 +4196,23 @@ function jungle.warriorArms(_target)
         or holdGCDForSlam
     )
     if useThread2SweepingPriority then
-        warriorArmsCache[3][1] = 'Sweeping Whirlwind'
-        warriorArmsCache[3][2] = 'Whirlwind'
-        warriorArmsCache[3][3] = (useWW and not isCastingSlam and inMeleeRange and wwReadyNoGCD)
+        warriorArmsCache[3][1] = 'Sweeping Slam'
+        warriorArmsCache[3][2] = 'Slam'
+        warriorArmsCache[3][3] = (useSlam and inMeleeRange)
+
+        warriorArmsCache[4][1] = 'Sweeping Whirlwind'
+        warriorArmsCache[4][2] = 'Whirlwind'
+        warriorArmsCache[4][3] = (useWW and not isCastingSlam and inMeleeRange and wwReadyNoGCD)
 
         if isHSQueued and not isCastingSlam then
-            warriorArmsCache[4][1] = 'Cancel Heroic Strike for Cleave'
-            warriorArmsCache[4][2] = 'Stopcasting'
-            warriorArmsCache[4][3] = true
+            warriorArmsCache[5][1] = 'Cancel Heroic Strike for Cleave'
+            warriorArmsCache[5][2] = 'Stopcasting'
+            warriorArmsCache[5][3] = true
         else
-            warriorArmsCache[4][1] = 'Sweeping Cleave'
-            warriorArmsCache[4][2] = 'Cleave'
-            warriorArmsCache[4][3] = (useCleave and not isCastingSlam and inMeleeRange and ReadyCastSpellNoGCD('Cleave', _target))
+            warriorArmsCache[5][1] = 'Sweeping Cleave'
+            warriorArmsCache[5][2] = 'Cleave'
+            warriorArmsCache[5][3] = (useCleave and not isCastingSlam and inMeleeRange and ReadyCastSpellNoGCD('Cleave', _target))
         end
-
-        warriorArmsCache[5][1] = 'Sweeping Slam'
-        warriorArmsCache[5][2] = 'Slam'
-        warriorArmsCache[5][3] = (useSlam and inMeleeRange)
 
         warriorArmsCache[6][1] = 'Sweeping Mortal Strike'
         warriorArmsCache[6][2] = 'Mortal Strike'
@@ -4136,7 +4271,7 @@ function jungle.warriorArms(_target)
     end
 
     if not useThread2AoEPriority then
-        -- Slam is strict priority at normal speed and filler in core-first haste mode.
+        -- An open post-swing Slam window is strict priority at every weapon speed.
         warriorArmsCache[4][1] = 'Slam'
         warriorArmsCache[4][2] = 'Slam'
         warriorArmsCache[4][3] = (useSlam and not prioritizeCoreOverSlam and inMeleeRange)
@@ -4173,7 +4308,7 @@ function jungle.warriorArms(_target)
     warriorArmsCache[16][1] = shouldCommanding and 'Commanding Shout' or 'Battle Shout'
     warriorArmsCache[16][2] = shouldCommanding and 'Commanding Shout' or 'Battle Shout'
     warriorArmsCache[16][3] = (not useThread2AoEPriority and (shouldCommanding and useCommandingShout or useBattleShout) and not holdGCDForSlam)
-    warriorArmsCache[17][3] = (not useThread2AoEPriority and useDemo and not holdGCDForSlam and ReadyCastSpellNoGCD('Demoralizing Shout'))
+    warriorArmsCache[17][3] = (canApplyTargetDebuff and not useThread2AoEPriority and useDemo and not holdGCDForSlam and ReadyCastSpellNoGCD('Demoralizing Shout'))
 
     warriorArmsCache[18][3] = (useCharge and not isCastingSlam)
     warriorArmsCache[19][3] = (useBattleStanceForCharge and not isCastingSlam)
@@ -4195,6 +4330,235 @@ function jungle.warriorArms(_target)
     end
     
     return warriorArmsCache
+end
+
+-- ============================================================================
+-- WARRIOR THREAD 3: SWEEPING STRIKES AOE MANAGEMENT
+-- ============================================================================
+
+local THREAD3_PRE_SWING_WINDOW = 0.8
+local thread3BattleCleaveSwingBaseline = nil
+
+local warriorThread3Cache = {
+    [1]  = {'Charge', 'Charge', false, 1, 0},
+    [2]  = {'Charge Stance', 'Battle Stance', false, 1, 0},
+    [3]  = {'Intercept', 'Intercept', false, 1, 0},
+    [4]  = {'Intercept Stance', 'Berserker Stance', false, 1, 0},
+    [5]  = {'Attack', 'Attack', false, 1, 0},
+    [6]  = {'Battle Thunder Clap', 'Thunder Clap', false, 1, 0},
+    [7]  = {'Battle Cleave', 'Cleave', false, 1, 0},
+    [8]  = {'Berserker Stance', 'Berserker Stance', false, 1, 0},
+    [9]  = {'Sweeping Strikes', 'Sweeping Strikes', false, 1, 0},
+    [10] = {'Sweeping Cleave', 'Cleave', false, 1, 0},
+    [11] = {'Improved Slam', 'Slam', false, 1, 0},
+    [12] = {'Trinkets', 'Trinkets', false, 1, 0},
+    [13] = {'Whirlwind', 'Whirlwind', false, 1, 0},
+    [14] = {'Core Filler', 'Bloodthirst', false, 1, 0},
+    [15] = {'Bloodrage', 'Bloodrage', false, 1, 0},
+    [16] = {'Berserker Rage', 'Berserker Rage', false, 1, 0},
+}
+
+local function CountEligibleWarriorAoEEnemies(target)
+    local count = 0
+    local seenGUIDs = {}
+    local nameplates = C_NamePlate.GetNamePlates()
+    for i = 1, #nameplates do
+        local unit = GetNameplateUnitToken(nameplates[i], i)
+        if IsEnemyNameplateEligibleForAoE(unit) and CheckInteractDistance(unit, 3) then
+            local guid = UnitGUID(unit)
+            if not guid or not seenGUIDs[guid] then
+                count = count + 1
+                if guid then seenGUIDs[guid] = true end
+            end
+        end
+    end
+
+    if IsEnemyNameplateEligibleForAoE(target) and CheckInteractDistance(target, 3) then
+        local targetGUID = UnitGUID(target)
+        if not targetGUID or not seenGUIDs[targetGUID] then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function GetWarriorThread3State(target)
+    if not UnitExists(target)
+    or not UnitCanAttack("player", target)
+    or UnitIsDeadOrGhost(target)
+    or not warriorCapabilities.hasSweepingStrikes then
+        return nil
+    end
+
+    local enemyCount = CountEligibleWarriorAoEEnemies(target)
+    local sweepingActive = (jungle.unitCacheBuff('player', 'Sweeping Strikes') and true or false)
+        or GetTime() <= armsSweepingStrikesCastGraceUntil
+    local sweepingReady = IsSpellOffRealCooldown('Sweeping Strikes')
+    if not sweepingActive and not sweepingReady then return nil end
+
+    return {
+        enemyCount = enemyCount,
+        isAoE = enemyCount >= 2,
+        sweepingActive = sweepingActive,
+        sweepingReady = sweepingReady,
+    }
+end
+
+function jungle.WarriorThread3OwnsTarget(target)
+    return GetWarriorThread3State(target) ~= nil
+end
+
+local function CanThread3Slam(target, rageThreshold)
+    if not CanUseImprovedSlam() or UnitPower("player", 1) < rageThreshold then
+        return false
+    end
+    if not jungle.inMeleeRange(target) or (GetUnitSpeed("player") or 0) > SLAM_STATIONARY_SPEED_MAX then
+        return false
+    end
+    local hasPendingSwing = armsLastMainhandSwingTime > armsLastSlammedSwingTime
+    local timeSinceSwing = armsLastMainhandSwingTime > 0 and (GetTime() - armsLastMainhandSwingTime) or 999
+    return hasPendingSwing
+        and timeSinceSwing >= 0
+        and timeSinceSwing <= SLAM_AFTERSWING_WINDOW
+        and UnitCastingInfo("player") ~= "Slam"
+        and ReadyCastSpellNoGCD('Slam')
+end
+
+function jungle.warriorThread3AoE(_target)
+    for i = 1, #warriorThread3Cache do
+        warriorThread3Cache[i][3] = false
+    end
+
+    local threadState = GetWarriorThread3State(_target)
+    if not threadState then
+        thread3BattleCleaveSwingBaseline = nil
+        return warriorThread3Cache
+    end
+
+    local gapCloser = GetWarriorGapCloserDecision(_target, ReadyCastSpellNoGCD)
+    local rage = gapCloser.rage
+    local stance = gapCloser.stance
+    local inMeleeRange = gapCloser.inMeleeRange
+    local isAutoAttacking = C_Spell.IsCurrentSpell(6603) or false
+    local mainhandTimeRemaining = jungle.SwingTimer:GetSlamTimeRemaining(armsLastMainhandSwingTime)
+    local hasConfirmedSwing = armsLastMainhandSwingTime > 0
+    local aboutToSwing = isAutoAttacking
+        and hasConfirmedSwing
+        and mainhandTimeRemaining <= THREAD3_PRE_SWING_WINDOW
+    local isCleaveQueued = C_Spell.IsCurrentSpell("Cleave") or false
+    local canApplyTargetDebuff = CanApplyWarriorTargetDebuff(_target)
+
+    warriorThread3Cache[1][3] = gapCloser.useCharge
+    warriorThread3Cache[2][3] = gapCloser.useBattleStanceForCharge
+    warriorThread3Cache[3][3] = gapCloser.useIntercept
+    warriorThread3Cache[4][3] = gapCloser.useBerserkerStanceForIntercept
+    if gapCloser.useCharge or gapCloser.useIntercept then
+        RecordArmsGapCloser(GetTime(), true)
+    end
+
+    local gapCloserPending = gapCloser.useCharge
+        or gapCloser.useBattleStanceForCharge
+        or gapCloser.useIntercept
+        or gapCloser.useBerserkerStanceForIntercept
+    warriorThread3Cache[5][3] = not gapCloserPending and not isAutoAttacking
+
+    if gapCloserPending or not isAutoAttacking then
+        return warriorThread3Cache
+    end
+
+    -- Before Sweeping Strikes is spent, Thread 3 owns the rotation even when
+    -- fewer than two verified enemies are nearby. Pool through auto-attacks and
+    -- Bloodrage instead of leaking into the normal Arms routine. At 90+ rage,
+    -- allow only Slam/MS overflow dumps; either cast still leaves 60+ rage.
+    if not threadState.sweepingActive and not threadState.isAoE then
+        thread3BattleCleaveSwingBaseline = nil
+        warriorThread3Cache[11][3] = CanThread3Slam(_target, ARMS_PVE_RAGE_DUMP_OVERFLOW)
+        warriorThread3Cache[14][1] = 'Overflow Mortal Strike'
+        warriorThread3Cache[14][2] = 'Mortal Strike'
+        warriorThread3Cache[14][3] = warriorCapabilities.hasMortalStrike
+            and rage >= ARMS_PVE_RAGE_DUMP_OVERFLOW
+            and inMeleeRange
+            and ReadyCastSpellNoGCD('Mortal Strike', _target)
+        warriorThread3Cache[15][3] = rage < ARMS_PVE_RAGE_DUMP_OVERFLOW
+            and ReadyCastSpellNoGCD('Bloodrage')
+        warriorThread3Cache[16][3] = ReadyCastSpellNoGCD('Berserker Rage')
+        return warriorThread3Cache
+    end
+
+    -- When Thread 3 finds us in Battle Stance, spend the one available Thunder
+    -- Clap first. If a Cleave can consume the imminent swing, wait for that
+    -- confirmed swing before moving to Berserker Stance.
+    if stance == 1 then
+        local useThunderClap = canApplyTargetDebuff
+            and inMeleeRange
+            and ReadyCastSpellNoGCD('Thunder Clap')
+        warriorThread3Cache[6][3] = useThunderClap
+        if useThunderClap then return warriorThread3Cache end
+
+        if thread3BattleCleaveSwingBaseline ~= nil then
+            if armsLastMainhandSwingTime <= thread3BattleCleaveSwingBaseline then
+                return warriorThread3Cache
+            end
+            thread3BattleCleaveSwingBaseline = nil
+        elseif isCleaveQueued then
+            if thread3BattleCleaveSwingBaseline == nil then
+                thread3BattleCleaveSwingBaseline = armsLastMainhandSwingTime
+            end
+            return warriorThread3Cache
+        elseif aboutToSwing and inMeleeRange and rage >= CLEAVE_RAGE_COST and IsNextSwingReady('Cleave', _target) then
+            warriorThread3Cache[7][3] = true
+            return warriorThread3Cache
+        else
+            thread3BattleCleaveSwingBaseline = nil
+        end
+
+        warriorThread3Cache[8][3] = ReadyCastSpellNoGCD('Berserker Stance')
+        return warriorThread3Cache
+    elseif stance ~= 3 then
+        thread3BattleCleaveSwingBaseline = nil
+        warriorThread3Cache[8][3] = ReadyCastSpellNoGCD('Berserker Stance')
+        return warriorThread3Cache
+    end
+    thread3BattleCleaveSwingBaseline = nil
+
+    if threadState.sweepingActive then
+        -- Cleave is deliberately first: every eligible Sweeping Strikes swing
+        -- should consume the queued attack before any GCD action is suggested.
+        warriorThread3Cache[10][3] = aboutToSwing
+            and inMeleeRange
+            and rage >= CLEAVE_RAGE_COST
+            and not isCleaveQueued
+            and IsNextSwingReady('Cleave', _target)
+        warriorThread3Cache[11][3] = CanThread3Slam(_target, ARMS_PVE_SWEEPING_MS_RAGE_THRESHOLD)
+        warriorThread3Cache[12][3] = jungle.AreTrinketsReady()
+            and UnitAffectingCombat("player")
+            and inMeleeRange
+        warriorThread3Cache[13][3] = inMeleeRange and ReadyCastSpellNoGCD('Whirlwind')
+
+        local filler = warriorCapabilities.hasBloodthirst and 'Bloodthirst'
+            or (warriorCapabilities.hasMortalStrike and 'Mortal Strike')
+        warriorThread3Cache[14][1] = filler and (filler .. ' Filler') or 'No Core Filler'
+        warriorThread3Cache[14][2] = filler or ''
+        warriorThread3Cache[14][3] = filler ~= nil
+            and rage >= ARMS_PVE_SWEEPING_MS_RAGE_THRESHOLD
+            and inMeleeRange
+            and not IsSpellOffRealCooldown('Whirlwind')
+            and ReadyCastSpellNoGCD(filler, _target)
+        warriorThread3Cache[15][3] = rage < 80 and ReadyCastSpellNoGCD('Bloodrage')
+        warriorThread3Cache[16][3] = ReadyCastSpellNoGCD('Berserker Rage')
+        return warriorThread3Cache
+    end
+
+    -- Pooling phase: no normal rage spender may leak through to the baseline
+    -- rotation. Improved Slam is the sole overflow exception at 90+ rage.
+    warriorThread3Cache[11][3] = CanThread3Slam(_target, ARMS_PVE_RAGE_DUMP_OVERFLOW)
+    warriorThread3Cache[9][3] = rage >= 80
+        and aboutToSwing
+        and inMeleeRange
+        and ReadyCastSpellNoGCD('Sweeping Strikes')
+    warriorThread3Cache[15][3] = rage < 80 and ReadyCastSpellNoGCD('Bloodrage')
+    warriorThread3Cache[16][3] = ReadyCastSpellNoGCD('Berserker Rage')
+    return warriorThread3Cache
 end
 
 function jungle.warriorUniversal(_target)

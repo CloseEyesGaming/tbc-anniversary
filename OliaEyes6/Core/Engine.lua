@@ -28,6 +28,7 @@ function Engine:Initialize()
         druidUniversal = {jungle.dispellSet, jungle.universalHealSetV6},
         warriorArmsPveMaintenance = {jungle.warriorArmsPveMaintenance},
         warriorArms = {jungle.warriorArms},
+        warriorThread3AoE = {jungle.warriorThread3AoE},
         follower = {jungle.followerSet},
         druidBuff = {jungle.buffSet},
         druidPvP = {jungle.universalPvPMatrix},
@@ -130,6 +131,19 @@ function Engine:ProcessRotation()
             if rot:dpsRotate(sets.warriorArmsPveMaintenance, 1) then return true end
             if rot:dpsRotate(sets.warriorUniversal, 1) then return true end        
 		elseif self.activeThread == 2 then
+            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end
+        elseif self.activeThread == 3 then
+            local threadTarget = nil
+            if UnitExists('target') and UnitCanAttack('player', 'target') and not UnitIsDeadOrGhost('target') then
+                threadTarget = 'target'
+            elseif UnitExists('softenemy') and UnitCanAttack('player', 'softenemy') and not UnitIsDeadOrGhost('softenemy') then
+                threadTarget = 'softenemy'
+            end
+
+            if threadTarget and jungle.WarriorThread3OwnsTarget(threadTarget) then
+                if rot:dpsRotate(sets.warriorThread3AoE, 1) then return true end
+                return true -- Hold the tick while Thread 3 is intentionally pooling.
+            end
             if rot:dpsRotate(sets.warriorUniversal, 1) then return true end
         elseif self.activeThread == 5 then
             if rot:dpsRotate(sets.warriorTank, 1) then return true end

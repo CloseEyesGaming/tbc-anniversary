@@ -7,7 +7,7 @@ local unitCache = {} -- Table to store cached unit data
 jungle.unitCache = unitCache
 
 local UNIVERSAL_TOKENS = {"player", "target", "focus", "mouseover", "pet", "softenemy"}
-local DEBUFF_CATEGORIES = {'magic', 'curse', 'poison', 'disease', 'slow', 'root', 'freedom', 'unitIgnore'}
+local DEBUFF_CATEGORIES = {'magic', 'curse', 'poison', 'disease', 'slow', 'root', 'freedom', 'unitIgnore', 'enemyNameplateAoEIgnore'}
 local RAID_TOKENS = {}
 local PARTY_TOKENS = {}
 local ARENA_TOKENS = {}
@@ -117,6 +117,8 @@ end
 -- GameData.lua loads immediately before this file. Keep its public arrays intact
 -- for compatibility while using private O(1) lookups in the aura hot path.
 local UNIT_IGNORE_DEBUFF_SET = BuildNameSet(jungle.unitIgnoreDebuffs)
+local ENEMY_NAMEPLATE_AOE_IGNORE_DEBUFF_SET = BuildNameSet(jungle.enemyNameplateAoEIgnoreDebuffs)
+local ENEMY_NAMEPLATE_AOE_IGNORE_BUFF_SET = BuildNameSet(jungle.enemyNameplateAoEIgnoreBuffs)
 local SLOW_DEBUFF_SET = BuildNameSet(jungle.slowDebuffs)
 local ROOT_DEBUFF_SET = BuildNameSet(jungle.rootDebuffs)
 local FREEDOM_DEBUFF_SET = BuildNameSet(jungle.toFreedomDebuffs)
@@ -210,10 +212,12 @@ local function InitUnitTable()
             debuffs = {
                 all = {}, magic = {}, curse = {}, poison = {}, disease = {},
                 slow = {}, root = {}, freedom = {}, unitIgnore = {},
+                enemyNameplateAoEIgnore = {},
             },
             buffs = {
                 player = {}, nonplayer = {}, slowImmunity = {},
                 unitIgnoreIfYouCaster = {}, unitIgnoreIfYouPhys = {},
+                enemyNameplateAoEIgnore = {},
             },
         },
     }
@@ -264,6 +268,9 @@ local function ParseDebuffAura(debuff, _, count, dispelType, duration, expiratio
     if UNIT_IGNORE_DEBUFF_SET[debuff] then
         injectAura(data.unitIgnore, debuff, count, expirationTime, source)
     end
+    if ENEMY_NAMEPLATE_AOE_IGNORE_DEBUFF_SET[debuff] then
+        injectAura(data.enemyNameplateAoEIgnore, debuff, count, expirationTime, source)
+    end
     if dispelType == 'Magic' then
         injectAura(data.magic, debuff, count, expirationTime, source)
     elseif dispelType == 'Curse' then
@@ -308,6 +315,9 @@ local function ParseBuffAura(buff, _, count, dispelType, duration, expirationTim
     end
     if PHYSICAL_IGNORE_BUFF_SET[buff] then
         injectAura(data.unitIgnoreIfYouPhys, buff, count, expirationTime, source)
+    end
+    if ENEMY_NAMEPLATE_AOE_IGNORE_BUFF_SET[buff] then
+        injectAura(data.enemyNameplateAoEIgnore, buff, count, expirationTime, source)
     end
 end
 

@@ -18,6 +18,7 @@ Hotkeys.MacroOverrides = {
     ["Pummel"]    = "/use [@mouseover,harm,stance:1/2,worn:shield][stance:1/2,worn:shield][@focus]Shield Bash\n/use [noworn:shield,nostance:3]Berserker Stance\n/use [mod,@focus,harm][@focus,exists,harm][@mouseover,harm][]Pummel",
     ["Battle Stance"]    = "/cast Battle Stance\n/cast Charge",
     ["Backstab"]    = "/cast [stealth] Pick Pocket\n/cast Backstab",
+	["Slam"]	= "/startattack\n/cast Slam\n/stopattack",
    
     -- Example: Stopcasting on specific spells if needed
     -- ["Healing Touch"] = "/stopcasting\n/cast Healing Touch",
@@ -56,7 +57,7 @@ Hotkeys.GlobalDefaults = {
     { id = "targettarget",macro = "/focus targettarget", icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
-    { id = "Fishing",     macro = "/cast Fishing",		 icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Fishing",     macro = "/run OliaFishingBagMaintenance()\n/cast Fishing", icon = "Interface\\Icons\\Trade_Fishing" },
     { id = "Lure", macro = "/use Shiny Bauble\n/use Nightcrawlers\n/use Bright Baubles\n/use Flesh Eating Worm\n/use Sharpened Fish Hook\n/use Aquadynamic Fish Attractor\n/use 16", icon = "Interface\\Icons\\Trade_Fishing" },
     { id = "Trinkets", macro = "/use 13\n/use 14", icon = "Interface\\Icons\\INV_Jewelry_TrinketPVP_01" },
     { id = "Desync", macro = "/cleartarget[exists, harm]\n/targetlasttarget[noexists]\n/startattack[exists, harm]", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },

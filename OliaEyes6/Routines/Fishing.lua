@@ -1,6 +1,84 @@
 local Jungle, jungle = ...
 local unitCache = jungle.unitCache
 
+local FISHING_DELETE_ITEM_IDS = {
+    [27422] = true, -- Barbed Gill Trout
+    [27425] = true, -- Spotted Feltail
+}
+
+local DELETE_INTERVAL_MIN = 10
+local DELETE_INTERVAL_MAX = 60
+local nextDeleteAttempt = 0
+local OPEN_INTERVAL_MIN = 10
+local OPEN_INTERVAL_MAX = 60
+local nextOpenAttempt = 0
+
+local function FindFishingItemToDelete()
+    local maxBag = NUM_BAG_SLOTS or 4
+    for bag = 0, maxBag do
+        local numSlots = C_Container.GetContainerNumSlots(bag) or 0
+        for slot = 1, numSlots do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and FISHING_DELETE_ITEM_IDS[info.itemID] and not info.isLocked then
+                return bag, slot
+            end
+        end
+    end
+end
+
+local function FindLootContainerToOpen()
+    local maxBag = NUM_BAG_SLOTS or 4
+    for bag = 0, maxBag do
+        local numSlots = C_Container.GetContainerNumSlots(bag) or 0
+        for slot = 1, numSlots do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and info.hasLoot and not info.isLocked then
+                return bag, slot
+            end
+        end
+    end
+end
+
+-- DeleteCursorItem is restricted and fails when called directly by OnUpdate.
+-- This function is invoked by the existing Fishing secure macro hotkey, so
+-- no mouse hover is needed and the call occurs during the hotkey input event.
+function _G.OliaFishingBagMaintenance()
+    local now = GetTime()
+    if CursorHasItem() or InCombatLockdown() then return end
+
+    if now >= nextDeleteAttempt then
+        local bag, slot = FindFishingItemToDelete()
+        if bag then
+            nextDeleteAttempt = now + math.random(DELETE_INTERVAL_MIN, DELETE_INTERVAL_MAX)
+
+            C_Container.PickupContainerItem(bag, slot)
+            if CursorHasItem() then
+                DeleteCursorItem()
+
+                -- If Blizzard rejects the deletion, put the item back instead
+                -- of leaving it attached to the software cursor.
+                if CursorHasItem() then
+                    ClearCursor()
+                end
+            end
+            return -- Perform at most one bag operation per Fishing press.
+        end
+    end
+
+    if now >= nextOpenAttempt then
+        local bag, slot = FindLootContainerToOpen()
+        if bag then
+            nextOpenAttempt = now + math.random(OPEN_INTERVAL_MIN, OPEN_INTERVAL_MAX)
+            C_Container.UseContainerItem(bag, slot)
+        end
+    end
+end
+
+-- Backward-compatible manual command for anyone already using it.
+function _G.OliaDeleteFishingItem()
+    OliaFishingBagMaintenance()
+end
+
 local function Fishing()
     -- Prevent actions if currently casting (e.g. Lure)
     local castingName = UnitCastingInfo("player")
@@ -41,7 +119,7 @@ local function Fishing()
         end
     end
 
-    local set = {			
+    local set = {
 		[1]= {'',
 			'Lure',
 			(
