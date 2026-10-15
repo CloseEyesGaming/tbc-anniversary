@@ -11,7 +11,7 @@ The current addon declares interface **20504** in [OliaEyes6.toc](OliaEyes6/Olia
 ### Implemented features
 
 - **Druid:** healing, including the V6 Lifebloom scheduler, tank/raid healing, dispels, buffs, form-aware damage and equipment handling.
-- **Warrior:** Original Arms/Fury, tank and maintenance routines, a Sweeping Strikes sequence, Arms WoWSims, Arms Adaptive, and the independent PvE dual-wield Arms Kebab routine.
+- **Warrior:** Original Arms/Fury, tank and maintenance routines, a Sweeping Strikes sequence, Arms WoWSims, Arms Adaptive, and the independent PvE dual-wield Arms Kebab routine. Kebab keeps Whirlwind available beside immunity-only enemies while preserving crowd-control protection; immune enemies remain excluded from AoE counting.
 - **Rogue:** a damage routine with stealth, weapon and position conditions.
 - **Support:** Fishing and Follower routines on a dedicated support thread.
 - **Configuration:** an in-game overlay with ordered routine lists, action switches, per-routine options and profiles.

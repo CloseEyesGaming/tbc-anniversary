@@ -186,7 +186,7 @@ local function Warrior(def)
         pve={
             Project(def,"PvE Single target",name,{1,3,4,5,6,7,8,9,2,14,13,19,20,10,11,12,15,16,17,18,24,21,23,22},
                 "PvE DW Arms; fewer than 2 safe eligible melee enemies, or area blocked; includes Execute",nil,
-                common.." Normal: MS before WW, both before new HS. Keep HS queued while pooling; allow payment only with exact upcoming core costs retained, no rage buffer. Shared GCD never removes the second ready/closely due core from funding. Normal ordinary GCD buffs wait for a ready GCD and >=1.5s core gap after any current GCD remainder; trinkets remain off GCD without this hold; optional spending also retains any already funded queued HS payment. Temporary queues use confirmed MH timing; affordable unpaid HS cancels at the MH deadline. HS admission precedes optional Berserker Rage and paid fillers. Execute at <=20%: MS opt-in, WW follows its preference, HS opt-in; Hamstring/Berserker Rage only outside Execute; assigned debuff maintenance continues. Excluded enemies block WW and Demo. No enemy: only queue cleanup and selected shout maintenance. Gap closers require an enemy outside melee."),
+                common.." Normal: MS before WW, both before new HS. Keep HS queued while pooling; allow payment only with exact upcoming core costs retained, no rage buffer. Shared GCD never removes the second ready/closely due core from funding. Normal ordinary GCD buffs wait for a ready GCD and >=1.5s core gap after any current GCD remainder; trinkets remain off GCD without this hold; optional spending also retains any already funded queued HS payment. Temporary queues use confirmed MH timing; affordable unpaid HS cancels at the MH deadline. HS admission precedes optional Berserker Rage and paid fillers. Execute at <=20%: MS opt-in, WW follows its preference, HS opt-in; Hamstring/Berserker Rage only outside Execute; assigned debuff maintenance continues. Excluded enemies block Demo; WW remains allowed for immunity-only exclusions, but protected control still blocks WW. No enemy: only queue cleanup and selected shout maintenance. Gap closers require an enemy outside melee."),
             Project(def,"PvE AoE",name,{1,3,4,5,6,7,8,9,2,14,13,10,11,12,15,16,17,24,25,26,20,19,21,23},
                 "PvE DW Arms; 2+ observed eligible melee enemies and no excluded enemy; includes Execute",nil,
                 common.." Fund ready Sweeping Strikes, admit a funded new Cleave, then WW before spare-rage MS. Existing Cleave does not withhold rage or cancel just for low rage. Execute: MS opt-in, WW follows its preference, Cleave separately opt-in; Berserker Rage only outside Execute; assigned debuff maintenance continues. No HS or Hamstring. Count drop or excluded enemy resumes single target after obsolete queue cleanup."),
@@ -203,7 +203,7 @@ local function Warrior(def)
                             or "Normal: first core; Execute: preference required"
                     elseif step.id=="Whirlwind" then
                         step.summary=section.label=="PvE AoE" and "First damage core; Execute follows preference"
-                            or "Safe area; Normal after MS; Execute preference"
+                            or "No protected control; Normal after MS; Execute preference"
                     end
                 end
             end

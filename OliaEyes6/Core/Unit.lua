@@ -54,10 +54,15 @@ local function IsTotemUnit(unit)
 end
 jungle.IsTotemUnit = IsTotemUnit
 
-local function HasActiveAuraEntries(entries)
+-- Optional Whirlwind eligibility ignores these buffs, never control debuffs.
+local areaDamageImmunityBuffs = {
+    ["Ice Block"] = true, ["Divine Shield"] = true,
+    ["Blessing of Protection"] = true, ["Divine Intervention"] = true,
+}
+local function HasActiveAuraEntries(entries, ignoredNames)
     if not entries then return false end
-    for _, aura in pairs(entries) do
-        if aura and aura.isActive then
+    for name, aura in pairs(entries) do
+        if aura and aura.isActive and not (ignoredNames and ignoredNames[name]) then
             return true
         end
     end
@@ -84,19 +89,21 @@ local function EnsureEnemyNameplateAoEAuraSets()
     end
 end
 
-local function HasDirectMatchingAura(unit, filter, names)
+local function HasDirectMatchingAura(unit, filter, names, ignoredNames)
     if jungle.RaidTrace.sample then jungle.RaidTrace:Count("nameplateAuraScans") end
     if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return false end
     for index = 1, 40 do
         if jungle.RaidTrace.sample then jungle.RaidTrace:Count("nameplateAuraSlots") end
         local aura = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
         if not aura then break end
-        if names[aura.name] then return true end
+        if names[aura.name] and not (ignoredNames and ignoredNames[aura.name]) then return true end
     end
     return false
 end
 
-local function IsEnemyNameplateEligibleForAoE(unit)
+-- Default eligibility/counting is unchanged. The optional immunity exception is
+-- used only by Kebab WW safety and must not read/write the default GUID cache.
+local function IsEnemyNameplateEligibleForAoE(unit, ignoreImmunityBuffs)
     if not unit
     or not UnitExists(unit)
     or not UnitCanAttack("player", unit)
@@ -105,7 +112,7 @@ local function IsEnemyNameplateEligibleForAoE(unit)
         return false
     end
 
-    local currentTick = jungle.currentTick
+    local currentTick = not ignoreImmunityBuffs and jungle.currentTick
     if currentTick and currentTick ~= enemyNameplateAoEEligibilityTick then
         enemyNameplateAoEEligibilityTick = currentTick
         enemyNameplateAoEEligibilityByGUID = {}
@@ -126,7 +133,7 @@ local function IsEnemyNameplateEligibleForAoE(unit)
         local debuffs = unitData.auras.debuffs
         local buffs = unitData.auras.buffs
         if HasActiveAuraEntries(debuffs and debuffs.enemyNameplateAoEIgnore)
-        or HasActiveAuraEntries(buffs and buffs.enemyNameplateAoEIgnore) then
+        or HasActiveAuraEntries(buffs and buffs.enemyNameplateAoEIgnore, ignoreImmunityBuffs and areaDamageImmunityBuffs) then
             return FinishEligibility(false)
         end
         return FinishEligibility(true)
@@ -134,7 +141,7 @@ local function IsEnemyNameplateEligibleForAoE(unit)
 
     EnsureEnemyNameplateAoEAuraSets()
     return FinishEligibility(not HasDirectMatchingAura(unit, "HARMFUL", enemyNameplateAoEDebuffSet)
-        and not HasDirectMatchingAura(unit, "HELPFUL", enemyNameplateAoEBuffSet)
+        and not HasDirectMatchingAura(unit, "HELPFUL", enemyNameplateAoEBuffSet, ignoreImmunityBuffs and areaDamageImmunityBuffs)
     )
 end
 jungle.IsEnemyNameplateEligibleForAoE = IsEnemyNameplateEligibleForAoE

@@ -3,7 +3,9 @@
 Kebab uses exactly two PvE blocks: **PvE Single target** and **PvE AoE**.
 Execute is described beside its actions in both blocks; exclusions and no-enemy
 shout/cleanup are documented inside Single target. Its unavailable PvP tab only
-exposes factual queue cleanup. This requested compact presentation is the Kebab
+exposes factual queue cleanup. Immunity-only exclusions do not veto WW in Single
+target; protected control still blocks it. Immune enemies remain excluded from
+AoE counting and keep SS/Cleave/Demo suppressed. This requested compact presentation is the Kebab
 exception to the otherwise separate phase/context sections below. All 24 action
 identities (23 optional) retain per-placement switches. There are 11 active
 preferences; obsolete `mainhand_queue` and aggressive Hamstring controls are retired, with

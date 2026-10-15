@@ -90,6 +90,29 @@ local function Fixture(s)
             j.WarriorAdaptiveContext[key]=sharedWarriorUtility[key]
         end
     end
+    if s.realAoEEligibility then
+        local facts={unitCache=j.unitCache,RaidTrace=j.RaidTrace,currentTick=1}
+        e.UnitCreatureType=function() return 'Humanoid',7 end
+        e.C_UnitAuras={GetAuraDataByIndex=function(unit,index,filter)
+            local auras=s.testAuras and s.testAuras[unit]
+            local list=auras and auras[filter]
+            return list and list[index] and {name=list[index]} or nil
+        end}
+        if s.cachedAuras then
+            for unit,auras in pairs(s.testAuras or {}) do
+                local categories={buffs={enemyNameplateAoEIgnore={}},debuffs={enemyNameplateAoEIgnore={}}}
+                for filter,names in pairs(auras) do
+                    local cat=filter=='HELPFUL' and categories.buffs or categories.debuffs
+                    for _,name in ipairs(names) do cat.enemyNameplateAoEIgnore[name]={isActive=true} end
+                end
+                facts.unitCache[unit]={auraInitialized=true,auras=categories}
+            end
+        end
+        setfenv(assert(loadfile('GameData.lua')),e)('OliaEyes6',facts)
+        setfenv(assert(loadfile('Core/Unit.lua')),e)('OliaEyes6',facts)
+        j.IsEnemyNameplateEligibleForAoE=facts.IsEnemyNameplateEligibleForAoE
+        j.auraEligibility=facts
+    end
     setfenv(assert(loadfile('Routines/WarriorKebab.lua')),e)('OliaEyes6',j)
     -- Load real action identities; bar creation stays outside this fixture.
     local hotkeys=Read('Core/Hotkeys.lua');hotkeys=hotkeys:sub(1,assert(hotkeys:find('function Hotkeys:CreateStaticBar()',1,true))-1)
@@ -661,5 +684,50 @@ do
     s.lost=true;output={};j.Engine.activeThread=0
     assert(e.SlashCmdList.OLIAEYES6_KEBABCHECK)()
     Check(table.concat(output,'\n'):find('No compiled Kebab',1,true)~=nil,'inactive thread diagnosis is explicit')
+end
+-- Actual aura eligibility: immunity-only exclusions must not veto single-target WW.
+-- Exercise both categorized cache and direct fallback, including mixed auras.
+for _,cached in ipairs({false,true}) do
+    for _,buff in ipairs({'Divine Shield','Blessing of Protection','Ice Block','Divine Intervention'}) do
+        local input={rage=25,second=true,realAoEEligibility=true,cachedAuras=cached,
+            steps={['Mortal Strike']=false,['Heroic Strike']=false},
+            testAuras={nameplate2={HELPFUL={buff}}}}
+        local s,j,e,c,entry,run,frames=Fixture(input)
+        run=function()
+            entry=c.plans[2][1];j.RoutineContext=entry
+            return First(j.warriorKebab('target'))
+        end
+        frames[1].scripts.OnEvent(nil,'NAME_PLATE_UNIT_ADDED','nameplate2')
+        Check(run()=='Whirlwind','immunity-only neighbor permits WW: '..buff..' cached='..tostring(cached))
+        Check(not entry.state.aoe and entry.state.enemies==1 and entry.state.unsafeArea and not entry.state.unsafeWW,'immune neighbor excluded from AoE but safe for WW')
+        Check(j.IsEnemyNameplateEligibleForAoE('nameplate2')==false,'WW exception cannot contaminate default eligibility cache')
+        Check(j.IsEnemyNameplateEligibleForAoE('nameplate2',true)==true,'WW exception bypasses cached default rejection')
+        Check(j.IsEnemyNameplateEligibleForAoE('nameplate2')==false,'default eligibility stays false after exception')
+        c:SetStep(2,1,'Whirlwind',false);Check(run()~='Whirlwind','action switch still blocks immunity exception')
+        c:SetStep(2,1,'Whirlwind',true);s.execute=true;s.rage=44
+        Check(run()=='Execute','Execute WW still needs its complete rage budget')
+        s.rage=45;Check(run()=='Whirlwind','Execute WW allowed at exact budget beside immunity')
+        c:SetOption(2,1,'execute_ww',false);Check(run()=='Execute','Execute WW preference still gates immunity exception')
+        -- Same-tick reverse query order, without a previously cached default result.
+        j.auraEligibility.currentTick=2
+        Check(j.IsEnemyNameplateEligibleForAoE('nameplate2',true)==true,'exception first is eligible')
+        Check(j.IsEnemyNameplateEligibleForAoE('nameplate2')==false,'default after exception first remains excluded')
+    end
+    for _,control in ipairs({'Polymorph','Cyclone','Banish','Entangling Roots','Mind Control'}) do
+        local harmful=control~='Mind Control' and {control} or {}
+        local helpful=control=='Mind Control' and {'Divine Shield',control} or {'Divine Shield'}
+        local s,j,e,c,entry,run,frames=Fixture({rage=25,second=true,realAoEEligibility=true,cachedAuras=cached,
+            steps={['Mortal Strike']=false,['Heroic Strike']=false},testAuras={nameplate2={HARMFUL=harmful,HELPFUL=helpful}}})
+        frames[1].scripts.OnEvent(nil,'NAME_PLATE_UNIT_ADDED','nameplate2')
+        Check(run()~='Whirlwind' and entry.state.unsafeWW,'control plus immunity still protects WW: '..control)
+        -- Removal/expiration restores observed eligibility and drops stale WW safety.
+        s.testAuras.nameplate2={}
+        local unit=j.auraEligibility.unitCache.nameplate2
+        if unit then
+            for _,kind in pairs(unit.auras) do for _,aura in pairs(kind.enemyNameplateAoEIgnore) do aura.isActive=false end end
+        end
+        j.auraEligibility.currentTick=2
+        Check(run()=='Whirlwind' and entry.state.aoe and not entry.state.unsafeWW,'control/immunity removal restores AoE WW')
+    end
 end
 print('WarriorKebab: '..checks..' checks passed')

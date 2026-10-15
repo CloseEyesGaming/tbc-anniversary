@@ -99,11 +99,16 @@ local function Observe(unit)
     if not guid or seen[guid] or C_Spell.IsSpellInRange('Hamstring',unit) ~= true or jungle.IsTotemUnit(unit) then return end
     seen[guid] = true
     if jungle.IsEnemyNameplateEligibleForAoE(unit) then state.enemies=state.enemies+1
-    else state.unsafeArea=true end
+    else
+        state.unsafeArea=true
+        -- Immunity-only exclusions reduce the AoE count but do not veto WW.
+        -- Control, including control combined with immunity, still protects it.
+        if not jungle.IsEnemyNameplateEligibleForAoE(unit,true) then state.unsafeWW=true end
+    end
 end
 local function ObserveEnemies(target)
     for key in pairs(seen) do seen[key]=nil end
-    state.enemies, state.unsafeArea = 0, false
+    state.enemies, state.unsafeArea, state.unsafeWW = 0, false, false
     Observe(target)
     for unit in pairs(plates) do Observe(unit) end
 end
@@ -183,7 +188,7 @@ function jungle.warriorKebab(target)
     local stance = GetShapeshiftForm()
     local hs, cleave = queueObserved, C_Spell.IsCurrentSpell('Cleave')
     state.msCD = (not state.execute or Option('execute_ms')) and Cooldown('Mortal Strike') or math.huge
-    state.wwCD = not state.unsafeArea and (not state.execute or Option('execute_ww')) and Cooldown('Whirlwind') or math.huge
+    state.wwCD = not state.unsafeWW and (not state.execute or Option('execute_ww')) and Cooldown('Whirlwind') or math.huge
     local tracker = jungle.SwingTimer
     local reliable = tracker and tracker:IsMainhandTimingReliable()
     state.swing = reliable and tracker:GetMainhandTimeRemaining() or math.huge
@@ -405,7 +410,7 @@ function Kebab:PrintDiagnostics()
                 ..' optionalReserve='..tostring(current.optionalReserve)..' utilityGap='..tostring(current.utilityGap)
                 ..' HS='..tostring(C_Spell.IsCurrentSpell('Heroic Strike'))
                 ..' Cleave='..tostring(C_Spell.IsCurrentSpell('Cleave'))
-                ..' unsafe='..tostring(current.unsafeArea))
+                ..' unsafe='..tostring(current.unsafeArea)..' unsafeWW='..tostring(current.unsafeWW))
             if target then
                 print('[Kebab] Demo remaining='..tostring(utility.debuffRemaining(target,'Demoralizing Shout'))
                     ..' otherAP='..tostring(utility.hasOtherAttackPowerDebuff(target))

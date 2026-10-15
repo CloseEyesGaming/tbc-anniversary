@@ -80,8 +80,25 @@ applicable. These are project policies, not proof of optimal DPS or future rage.
 
 Nearby observations use verified nameplate add/remove tokens, GUID deduplication,
 totem/controlled exclusions and conservative Hamstring range. An excluded observed
-enemy suppresses new SS/Cleave/WW/Demo while selected-target direct attacks remain possible.
-This does not measure the full WW radius or guarantee complete CC coverage. A
+enemy suppresses new SS/Cleave/Demo while selected-target direct attacks remain possible.
+Whirlwind has a separate control-safety check: Ice Block, Divine Shield, Blessing
+of Protection and Divine Intervention alone do not veto WW. Those enemies still
+stay out of the AoE count, so Kebab uses single-target priorities when fewer than
+two eligible enemies remain. Protected control debuffs and Mind Control still
+block WW, including when an immunity buff is present at the same time.
+This does not measure the full WW radius or guarantee complete CC coverage.
+
+The 2026-10-16 immunity exception is project policy, not a claim that WW can damage
+an immune unit. Installed build 2.5.6.70006 and TOC 20504 remain the target.
+Existing aura access was rechecked against Anniversary revision
+`2cfec7c00f0f24762d5ca35a4beb1e93c0cde328`:
+[UnitAuraDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/2cfec7c00f0f24762d5ca35a4beb1e93c0cde328/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua#L156)
+defines indexed unit/filter access and a nullable aura result;
+[Blizzard_BuffFrame/BuffFrame.lua](https://github.com/Gethe/wow-ui-source/blob/2cfec7c00f0f24762d5ca35a4beb1e93c0cde328/Interface/AddOns/Blizzard_BuffFrame/BuffFrame.lua)
+is the matching Blizzard consumer. The exception uses the existing localized-name
+lists and aura cache; it adds no client API/event. Live checks: attack a vulnerable
+PvE target beside each immune enemy and confirm WW; add protected control and
+confirm WW suppression; remove auras and confirm normal AoE resumes. A
 PLAYER_ENTERING_WORLD bootstrap verifies explicit nameplate1-40 tokens, independently
 of frame-array positions. Observations are shared facts; decisions/trinket retries
 live in each compiled placement's state. Recompile/thread changes clear those plans.
