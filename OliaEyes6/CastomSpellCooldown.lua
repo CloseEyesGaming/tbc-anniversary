@@ -39,3 +39,6 @@ frame:SetScript("OnEvent", OnCombatLogEvent)
 
 -- Expose the CheckIfSpellCastedRecently function to the addon table
 jungle.CheckIfSpellCastedRecently = jungle.CheckIfSpellCastedRecently
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(frame, "recentCasts")

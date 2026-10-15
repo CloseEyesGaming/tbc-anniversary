@@ -14,9 +14,10 @@ local stats = {
     engine = {label = "Engine", count = 0, total = 0, max = 0, spikes = 0},
     units = {label = "Units", count = 0, total = 0, max = 0, spikes = 0},
     rotation = {label = "Rotation", count = 0, total = 0, max = 0, spikes = 0},
+    arena = {label = "Arena", count = 0, total = 0, max = 0, spikes = 0},
     housekeeping = {label = "Housekeeping", count = 0, total = 0, max = 0, spikes = 0},
 }
-local statOrder = {"engine", "units", "rotation", "housekeeping"}
+local statOrder = {"engine", "units", "rotation", "housekeeping", "arena"}
 Perf.stats = stats
 
 function Perf:Clear()

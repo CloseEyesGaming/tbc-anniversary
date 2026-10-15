@@ -302,3 +302,6 @@ function Arena:GetDiminishingReturns(unitName)
     -- DRreturns saves units as fullName "Name-Realm"
     return jungle.getDR(unitName, Controlled_Stun_table) -- example lookup
 end
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(f, "arena")

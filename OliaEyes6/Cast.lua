@@ -10,6 +10,12 @@ local pixelColor = {0, 0, 0}
 local pixelHelper = jungle.Pixel:new(pixelColor, 1) 
 
 local function GetFocusUnit(target)
+    if jungle.EnemyFocus then
+        local actionId = jungle.EnemyFocus:GetActionId(target)
+        if actionId and actionId ~= target then
+            return actionId
+        end
+    end
     if target == 'target'
     and UnitExists('softenemy')
     and UnitIsUnit('target', 'softenemy') then
@@ -24,20 +30,21 @@ function Cast:CastSpell(spell, target, pix)
     -- Prepare variables for decision
     local r, g, b
     local debugEnabled = jungle.Debug and jungle.Debug.enabled
+    local traceStage
     local finalAction
-    local focusUnit = GetFocusUnit(target)
-
-    if not UnitExists('focus') or not UnitIsUnit('focus', target) then
-        -- Logic: Set Focus Color
-        r, g, b = colorHelper:getRGB(focusUnit)
-        if debugEnabled then
-            finalAction = "Set Focus: " .. (focusUnit or "?")
-        end
-    elseif UnitIsUnit('focus', target) then
-        -- Logic: Cast Spell Color
+    if not jungle.actionHasRange[spell]
+    or (UnitExists('focus') and UnitIsUnit('focus', target)) then
+        if jungle.RaidTrace.enabled then traceStage = "spellIntent" end
         r, g, b = colorHelper:getRGB(spell)
         if debugEnabled then
             finalAction = "Cast: " .. (spell or "?")
+        end
+    else
+        local focusUnit = GetFocusUnit(target)
+        if jungle.RaidTrace.enabled then traceStage = "focusIntent" end
+        r, g, b = colorHelper:getRGB(focusUnit)
+        if debugEnabled then
+            finalAction = "Set Focus: " .. (focusUnit or "?")
         end
     end
 
@@ -48,6 +55,10 @@ function Cast:CastSpell(spell, target, pix)
 
     -- Execute
     if r then
+        if jungle.RaidTrace.enabled then
+            jungle.RaidTrace.intentSpell, jungle.RaidTrace.intentTarget = spell, target
+            jungle.RaidTrace.intentStage = traceStage
+        end
         pixelColor[1], pixelColor[2], pixelColor[3] = r, g, b
         return pixelHelper:set()
     end

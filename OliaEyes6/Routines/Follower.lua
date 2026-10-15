@@ -1,4 +1,6 @@
 local Jungle, jungle = ...
+jungle.RoutineAllows = jungle.RoutineAllows or function() return true end
+jungle.GetRoutineThread = jungle.GetRoutineThread or function() return jungle.Engine and jungle.Engine.activeThread end
 local unitCache = jungle.unitCache
 local GetPlayerClass = jungle.GetPlayerClass
 
@@ -582,6 +584,7 @@ local function getFollowerTravelState()
 end
 
 local function getFollowerRestState(travel)
+    local routineActions = jungle.RoutineContext and not jungle.RoutineContext.allEnabled and jungle.RoutineContext.actions
     local manaMax = UnitPowerMax("player", 0) or 0
     local manaPct = manaMax > 0 and ((UnitPower("player", 0) or 0) / manaMax) or 1
     local healthMax = UnitHealthMax("player") or 0
@@ -592,8 +595,8 @@ local function getFollowerRestState(travel)
 
     local lowMana = not travel.inCombat and manaPct < 0.50
     local lowHealth = healthPct < 0.70
-    local canDrink = bestDrink and updateConsumableMacro("Drink", bestDrink)
-    local canEat = bestFood and updateConsumableMacro("Food", bestFood)
+    local canDrink = (not routineActions or routineActions["Drink"] ~= false) and bestDrink and updateConsumableMacro("Drink", bestDrink)
+    local canEat = (not routineActions or routineActions["Food"] ~= false) and bestFood and updateConsumableMacro("Food", bestFood)
     local shouldRest = lowMana and (hasDrink or hasFood or canDrink or (lowHealth and canEat))
 
     return {
@@ -656,38 +659,41 @@ end
 
 function jungle.followerSet(friend)
     -- 1. Identify Driver
+    local routineActions = jungle.RoutineContext and not jungle.RoutineContext.allEnabled and jungle.RoutineContext.actions
     local driver = getFollowerDriver()
 
-    -- Fast exit: only evaluate once per rotation tick (when friend == driver)
-    if not UnitIsUnit(friend, driver) then return emptyFollowerCache end
-    if not UnitExists(driver) or UnitIsDeadOrGhost(driver) then return emptyFollowerCache end
+    local hasDriver = UnitExists(driver) and not UnitIsDeadOrGhost(driver)
+        and UnitIsFriend("player", driver)
+    -- Self maintenance remains in this block when there is no friendly driver.
+    local contextUnit = hasDriver and driver or "player"
+    if not friend or not UnitIsUnit(friend, contextUnit) then return emptyFollowerCache end
 
     local travel = getFollowerTravelState()
     local rest = getFollowerRestState(travel)
-    local shouldMirrorMount = driverLooksMounted(driver)
+    local shouldMirrorMount = hasDriver and driverLooksMounted(driver)
 
     -- 2. Follow distance
-    local isVeryClose = jungle.inMeleeRange(driver) -- about 7 yards
+    local isVeryClose = hasDriver and jungle.inMeleeRange(driver) -- about 7 yards
 
-    followerCache[1][3] = rest.shouldStop
-    followerCache[2][3] = rest.shouldDrink
-    followerCache[3][3] = rest.shouldEat
+    followerCache[1][3] = (not routineActions or routineActions[followerCache[1][2]] ~= false) and (rest.shouldStop)
+    followerCache[2][3] = (not routineActions or routineActions[followerCache[2][2]] ~= false) and (rest.shouldDrink)
+    followerCache[3][3] = (not routineActions or routineActions[followerCache[3][2]] ~= false) and (rest.shouldEat)
 
-    local shouldTree = shouldUseTreeOfLife(travel, rest)
-    followerCache[4][3] = shouldTree
+    local shouldTree = (not routineActions or routineActions[TREE_OF_LIFE_SPELL_NAME] ~= false) and shouldUseTreeOfLife(travel, rest)
+    followerCache[4][3] = (not routineActions or routineActions[followerCache[4][2]] ~= false) and (shouldTree)
 
     -- 3. Mount only when the driver appears to be mounting/mounted and we can mount now.
-    local shouldMount = (not shouldTree and not rest.shouldRest and shouldMirrorMount and travel.canMount and not (isVeryClose and travel.isMoving))
+    local shouldMount = ((not routineActions or routineActions["Mount"] ~= false) and not shouldTree and not rest.shouldRest and shouldMirrorMount and travel.canMount and not (isVeryClose and travel.isMoving))
     if shouldMount then
         updateMountMacro(travel.mountMode)
     end
-    followerCache[5][3] = shouldMount
+    followerCache[5][3] = (not routineActions or routineActions[followerCache[5][2]] ~= false) and (shouldMount)
 
     -- 4. Follow Logic: still works in instances/indoors when mount is blocked.
-    followerCache[6][3] = (not shouldTree and not rest.shouldRest and not isVeryClose and not travel.isCasting)
+    followerCache[6][3] = ((not routineActions or routineActions[followerCache[6][2]] ~= false) and (hasDriver and not shouldTree and not rest.shouldRest and not isVeryClose and not travel.isCasting))
 
     -- 5. Stop Follow (if close and we are still auto-running toward driver)
-    followerCache[7][3] = (not shouldTree and not rest.shouldRest and isVeryClose and travel.isMoving)
+    followerCache[7][3] = ((not routineActions or routineActions[followerCache[7][2]] ~= false) and (hasDriver and not shouldTree and not rest.shouldRest and isVeryClose and travel.isMoving))
 
     return followerCache
 end

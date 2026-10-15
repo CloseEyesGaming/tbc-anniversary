@@ -51,13 +51,33 @@ SlashCmdList["OLIA"] = function(msg)
         else
             print("Hotkeys module not loaded.")
         end
+    elseif cmd == "demo" then
+        if jungle.WarriorAdaptive then jungle.WarriorAdaptive:PrintDemoDiagnostics() end
     elseif cmd == "dump" then
         if jungle.Hotkeys then
             jungle.Hotkeys:DumpBindings()
         else
             print("Hotkeys module not loaded.")
         end
+    elseif cmd == "enemies" or cmd == "ef" then
+        if jungle.EnemyFocus then
+            jungle.EnemyFocus:PrintDiagnostics()
+        else
+            print("Enemy focus module not loaded.")
+        end
+    elseif cmd == "options" or cmd == "config" or cmd == "ui" then
+        if jungle.Options then
+            jungle.Options:Toggle()
+        else
+            print("Options module not loaded.")
+        end
+    elseif cmd == "center" then
+        if jungle.Options then
+            jungle.Options:Center()
+        else
+            print("Options module not loaded.")
+        end
     else
-        print("|cFF00FFFF[OliaEyes]|r Commands: /olia debug, /olia dump")
+        print("|cFF00FFFF[OliaEyes]|r Commands: /olia options, /olia center, /olia debug, /olia dump, /olia enemies, /olia demo")
     end
 end

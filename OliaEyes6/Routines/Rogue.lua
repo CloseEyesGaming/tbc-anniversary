@@ -1,4 +1,6 @@
 local Jungle, jungle = ...
+jungle.RoutineAllows = jungle.RoutineAllows or function() return true end
+jungle.GetRoutineThread = jungle.GetRoutineThread or function() return jungle.Engine and jungle.Engine.activeThread end
 local unitCache = jungle.unitCache
 
 -- Eviscerate rank tracking
@@ -33,7 +35,10 @@ local dpsRogueCache = {
 local emptyDpsCache = {}
 
 function jungle.rogueDpsSet(_target)
-    if not UnitExists(_target) or not UnitCanAttack("player", _target) then return emptyDpsCache end
+    -- This routine currently contains only enemy-dependent attacks.
+    local routineActions = jungle.RoutineContext and not jungle.RoutineContext.allEnabled and jungle.RoutineContext.actions
+    if not _target or not UnitExists(_target) or not UnitCanAttack("player", _target)
+    or UnitIsDeadOrGhost(_target) then return emptyDpsCache end
     
     local cp = GetComboPoints('player', _target)
     local targetHP = UnitHealth(_target)
@@ -68,10 +73,10 @@ function jungle.rogueDpsSet(_target)
         end
     end
     
-    dpsRogueCache[1][3] = (not isStealthed and jungle.ReadyCastSpell('Eviscerate', _target) and useEvis)
-    dpsRogueCache[2][3] = (hasDagger and isBehind and jungle.ReadyCastSpell('Backstab', _target) and cp < 5)
-    dpsRogueCache[3][3] = (not isStealthed and jungle.ReadyCastSpell('Sinister Strike', _target) and cp < 5 and (not isBehind or not hasDagger))
-    dpsRogueCache[4][3] = (shouldAttack)
+    dpsRogueCache[1][3] = ((not routineActions or routineActions[dpsRogueCache[1][2]] ~= false) and (not isStealthed and jungle.ReadyCastSpell('Eviscerate', _target) and useEvis))
+    dpsRogueCache[2][3] = ((not routineActions or routineActions[dpsRogueCache[2][2]] ~= false) and (hasDagger and isBehind and jungle.ReadyCastSpell('Backstab', _target) and cp < 5))
+    dpsRogueCache[3][3] = ((not routineActions or routineActions[dpsRogueCache[3][2]] ~= false) and (not isStealthed and jungle.ReadyCastSpell('Sinister Strike', _target) and cp < 5 and (not isBehind or not hasDagger or not (not routineActions or routineActions["Backstab"] ~= false))))
+    dpsRogueCache[4][3] = ((not routineActions or routineActions[dpsRogueCache[4][2]] ~= false) and (shouldAttack))
     
     return dpsRogueCache
 end

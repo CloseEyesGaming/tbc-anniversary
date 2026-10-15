@@ -18,7 +18,14 @@ Hotkeys.MacroOverrides = {
     ["Pummel"]    = "/use [@mouseover,harm,stance:1/2,worn:shield][stance:1/2,worn:shield][@focus]Shield Bash\n/use [noworn:shield,nostance:3]Berserker Stance\n/use [mod,@focus,harm][@focus,exists,harm][@mouseover,harm][]Pummel",
     ["Battle Stance"]    = "/cast Battle Stance\n/cast Charge",
     ["Backstab"]    = "/cast [stealth] Pick Pocket\n/cast Backstab",
-	["Slam"]	= "/startattack\n/cast Slam\n/stopattack",
+	--["Slam"]	= "/startattack\n/cast Slam\n/stopattack",
+
+    -- Moonweaver reuses the existing Druid spell buttons so the established
+    -- dynamic action indices and external key map remain unchanged.
+    ["Starfire"] = "/startattack\n/cast [exists,harm,nodead] Starfire",
+    ["Wrath"]    = "/startattack\n/cast [exists,harm,nodead] Wrath",
+    ["Moonfire"] = "/startattack\n/cast [@focus,exists,harm,nodead] Moonfire",
+    ["Insect Swarm"] = "/startattack\n/cast [exists,harm,nodead] Insect Swarm",
    
     -- Example: Stopcasting on specific spells if needed
     -- ["Healing Touch"] = "/stopcasting\n/cast Healing Touch",
@@ -29,6 +36,10 @@ local function Debug_PostClick(self, button, down)
     if down == false then return end
     if Hotkeys.DebugMode then
         local spell = self.debugName or "Unknown"
+        if self.debugFallbackName and self.debugPrimaryUnit
+        and not UnitExists(self.debugPrimaryUnit) then
+            spell = self.debugFallbackName
+        end
         local key = self.debugKey or "Unknown"
         local timestamp = date("%H:%M:%S")
 
@@ -58,7 +69,7 @@ Hotkeys.GlobalDefaults = {
     { id = "mouseover",   macro = "/focus mouseover",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "pettarget",   macro = "/focus pettarget",    icon = "Interface\\Icons\\Ability_Mage_Invisibility" },
     { id = "Fishing",     macro = "/run OliaFishingBagMaintenance()\n/cast Fishing", icon = "Interface\\Icons\\Trade_Fishing" },
-    { id = "Lure", macro = "/use Shiny Bauble\n/use Nightcrawlers\n/use Bright Baubles\n/use Flesh Eating Worm\n/use Sharpened Fish Hook\n/use Aquadynamic Fish Attractor\n/use 16", icon = "Interface\\Icons\\Trade_Fishing" },
+    { id = "Lure", macro = "/use Sharpened Fish Hook\n/use 16\n/use Bright Baubles\n/use 16", icon = "Interface\\Icons\\Trade_Fishing" },
     { id = "Trinkets", macro = "/use 13\n/use 14", icon = "Interface\\Icons\\INV_Jewelry_TrinketPVP_01" },
     { id = "Desync", macro = "/cleartarget[exists, harm]\n/targetlasttarget[noexists]\n/startattack[exists, harm]", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },
     -- { id = "Desync", macro = "/stopattack\n/startattack", icon = "Interface\\Icons\\Ability_Warrior_DecisiveStrike" },
@@ -70,12 +81,13 @@ Hotkeys.GlobalDefaults = {
     { id = "Food", macro = "/use Roasted Quail", icon = "Interface\\Icons\\INV_Misc_Food_10" },
     { id = "Drink", macro = "/use Sweet Nectar", icon = "Interface\\Icons\\INV_Drink_05" },
 
-    -- Warrior Weapon Swap Macros (updated dynamically on login/talent change)
-    { id = "Equip2H",     macro = "/eq [noworn:two-hand] placeholder",                                                      icon = "Interface\\Icons\\INV_Sword_04" },
-    { id = "EquipDW",     macro = "/equipslot 16 placeholder\n/equipslot 17 placeholder",                                   icon = "Interface\\Icons\\INV_Sword_04" },
-    { id = "EquipShield", macro = "/eq [noworn:shield] placeholder\n/equipslot [noworn:one-hand] 16 placeholder",            icon = "Interface\\Icons\\INV_Shield_05" },
-    { id = "EquipFastOffHand", macro = "/equipslot 17 placeholder",                                                         icon = "Interface\\Icons\\INV_Sword_04" },
-    { id = "EquipSlowOffHand", macro = "/equipslot 17 placeholder",                                                         icon = "Interface\\Icons\\INV_Sword_04" },
+    -- Shared weapon-swap button slots. Warrior and Druid update the same
+    -- hidden buttons dynamically, preserving the established key pool.
+    { id = "Equip2H",     macro = "/eq [noworn:two-hand] placeholder",                                           icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipDW",     macro = "/equipslot 16 placeholder\n/equipslot 17 placeholder",                        icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipShield", macro = "/eq [noworn:shield] placeholder\n/equipslot [noworn:one-hand] 16 placeholder", icon = "Interface\\Icons\\INV_Shield_05" },
+    { id = "EquipFastOffHand", macro = "/equipslot 17 placeholder",                                              icon = "Interface\\Icons\\INV_Sword_04" },
+    { id = "EquipSlowOffHand", macro = "/equipslot 17 placeholder",                                              icon = "Interface\\Icons\\INV_Sword_04" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -448,6 +460,7 @@ function Hotkeys:CreateStaticBar()
 
     self.StaticButtons = {}
     self.StaticBindings = {} 
+    self.StaticAliases = {}
     
     local keyIndex = 1
     local btnSize = 30
@@ -536,6 +549,7 @@ function Hotkeys:CreateStaticBar()
         
         table.insert(self.StaticButtons, { frame = btn, key = key, id = id })
         self.StaticBindings[id] = key
+        return btn
     end
     
     -- 0. HARDCODED THREADS (Num 1-6) - Does NOT use Pool
@@ -550,8 +564,11 @@ function Hotkeys:CreateStaticBar()
     CreateBtn("Thread 7", "/run run_thread7()", "Interface\\Icons\\Spell_ChargePositive", "F4")
 
     -- 1. Global Defaults (Attack, Stopcast, etc)
+    local _, playerClass = UnitClass("player")
     for _, data in ipairs(self.GlobalDefaults) do
-        CreateBtn(data.id, data.macro, data.icon)
+        if not data.class or data.class == playerClass then
+            CreateBtn(data.id, data.macro, data.icon)
+        end
     end
 
     -- 2. Missing Core Units
@@ -562,10 +579,73 @@ function Hotkeys:CreateStaticBar()
     for i = 1, 4 do CreateBtn("party"..i, "/focus party"..i) end
     for i = 5, 5 do CreateBtn("arena"..i, "/focus arena"..i) end -- Adjusted loop start to 5 for remaining Arena unit
     for i = 1, 4 do CreateBtn("arena"..i, "/focus arena"..i) end -- Correct loop for Arena 1-4
-    for i = 1, 40 do CreateBtn("raid"..i, "/focus raid"..i) end
+    for i = 1, 40 do
+        local raidUnit = "raid" .. i
+        local macroText = "/focus " .. raidUnit
+        local fallbackUnit
+        local fallbackActionId
+
+        if i >= 28 then
+            fallbackUnit = "raid" .. (i - 27) .. "target"
+            fallbackActionId = jungle.EnemyFocus:GetActionId(fallbackUnit)
+            macroText = "/focus [@" .. raidUnit .. ",exists] " .. raidUnit
+                .. "; [@" .. fallbackUnit .. ",exists,harm,nodead] " .. fallbackUnit
+        end
+
+        local btn = CreateBtn(raidUnit, macroText)
+        if btn and fallbackUnit then
+            btn.debugPrimaryUnit = raidUnit
+            btn.debugFallbackName = fallbackUnit
+            local key = self.StaticBindings[raidUnit]
+            self.StaticBindings[fallbackActionId] = key
+            table.insert(self.StaticAliases, {
+                id = fallbackActionId,
+                unit = fallbackUnit,
+                key = key,
+                sourceId = raidUnit,
+            })
+        end
+    end
     CreateBtn("softenemy", "/focus softenemy", "Interface\\Icons\\Ability_Hunter_SniperShot")
 
     self.StaticBarFrame = parent
+end
+
+-- Range metadata is shared by readiness, focus selection, and default macros.
+-- Custom macro contents remain authoritative, including any explicit focus use.
+function Hotkeys:GetActionMacroText(actionID, actionHasRange)
+    if self.MacroOverrides[actionID] then return self.MacroOverrides[actionID] end
+    local ranges = actionHasRange or jungle.actionHasRange
+    return (ranges[actionID] and "/cast [@focus,exists] " or "/cast ") .. actionID
+end
+
+function Hotkeys:RefreshActionRanges()
+    if InCombatLockdown() then
+        self.actionRangesDirty = true
+        return false
+    end
+
+    local actionHasRange = {}
+    local _, class = UnitClass("player")
+    for _, action in ipairs(self.GlobalDefaults) do
+        if not action.class or action.class == class then
+            actionHasRange[action.id] = C_Spell.SpellHasRange(action.id)
+        end
+    end
+    for _, action in ipairs(self.ClassSpells[class] or {}) do
+        actionHasRange[action.id] = C_Spell.SpellHasRange(action.id)
+    end
+
+    -- Publish only after buttons match; combat keeps the previous pair intact.
+    for _, button in ipairs(self.DynamicButtons or {}) do
+        local macro = self:GetActionMacroText(button.spell, actionHasRange)
+        if button.frame:GetAttribute("macrotext") ~= macro then
+            button.frame:SetAttribute("macrotext", macro)
+        end
+    end
+    jungle.actionHasRange = actionHasRange
+    self.actionRangesDirty = false
+    return true
 end
 
 -- B. DYNAMIC BAR (SPELL ENGINE)
@@ -629,12 +709,7 @@ function Hotkeys:CreateDynamicBar()
         -- ----------------------------------------------------
         -- OVERRIDE CHECK: Dynamic Bar
         -- ----------------------------------------------------
-        if Hotkeys.MacroOverrides[spellData.id] then
-             btn:SetAttribute("macrotext", Hotkeys.MacroOverrides[spellData.id])
-        else
-             -- Default Behavior
-             btn:SetAttribute("macrotext", "/cast [@focus, exists] " .. spellData.id)
-        end
+        btn:SetAttribute("macrotext", self:GetActionMacroText(spellData.id))
         -- ----------------------------------------------------
         
         btn.debugName = spellData.id 
@@ -685,12 +760,85 @@ function Hotkeys:ToggleDebug()
 end
 
 local last2H, last1H, lastShield, lastMH, lastOH, lastThird, lastFastOH, lastSlowOH
+local lastVelocityMH, lastVelocityOH, lastBatteryMH, lastVelocitySP, lastBatteryFAP
+local lastHealingMH, lastHealingOH, lastHealingPower
 local equipMacrosDirty = false
 function Hotkeys:UpdateEquipMacros()
     if InCombatLockdown() then return end
     local _, engClass = UnitClass('player')
-    if engClass ~= "WARRIOR" then return end
     if not self.StaticButtons then return end
+
+    if engClass == "DRUID" then
+        local velocityMH, velocityOH, batteryMH, velocitySP, batteryFAP
+        local healingMH, healingOH, healingPower
+        if jungle.GetBestMoonweaverWeapons then
+            velocityMH, velocityOH, batteryMH, velocitySP, batteryFAP,
+                healingMH, healingOH, healingPower = jungle.GetBestMoonweaverWeapons()
+        end
+
+        -- Druids reuse the established Warrior button IDs: Battery is the
+        -- 2H slot and Velocity is the DW/weapon-set slot.
+        self.EquipMacroTargets.EquipDW = velocityMH and {
+            mainHand = velocityMH,
+            offHand = velocityOH,
+        } or nil
+        self.EquipMacroTargets.Equip2H = batteryMH and {
+            mainHand = batteryMH,
+        } or nil
+        self.EquipMacroTargets.EquipShield = healingMH and {
+            mainHand = healingMH,
+            offHand = healingOH,
+        } or nil
+
+        for _, btnData in ipairs(self.StaticButtons) do
+            if btnData.id == "EquipDW" then
+                local macro = ""
+                if velocityMH then
+                    macro = "/equipslot 16 " .. velocityMH
+                    if velocityOH then
+                        macro = macro .. "\n/equipslot 17 " .. velocityOH
+                    end
+                end
+                btnData.frame:SetAttribute("macrotext", macro)
+            elseif btnData.id == "Equip2H" then
+                btnData.frame:SetAttribute("macrotext", batteryMH and ("/equipslot 16 " .. batteryMH) or "")
+            elseif btnData.id == "EquipShield" then
+                local macro = ""
+                if healingMH then
+                    macro = "/equipslot 16 " .. healingMH
+                    if healingOH then
+                        macro = macro .. "\n/equipslot 17 " .. healingOH
+                    end
+                end
+                btnData.frame:SetAttribute("macrotext", macro)
+            elseif btnData.id == "EquipFastOffHand"
+            or btnData.id == "EquipSlowOffHand" then
+                btnData.frame:SetAttribute("macrotext", "")
+            end
+        end
+        equipMacrosDirty = false
+
+        if velocityMH ~= lastVelocityMH or velocityOH ~= lastVelocityOH
+        or batteryMH ~= lastBatteryMH or velocitySP ~= lastVelocitySP
+        or batteryFAP ~= lastBatteryFAP or healingMH ~= lastHealingMH
+        or healingOH ~= lastHealingOH or healingPower ~= lastHealingPower then
+            lastVelocityMH, lastVelocityOH, lastBatteryMH = velocityMH, velocityOH, batteryMH
+            lastVelocitySP, lastBatteryFAP = velocitySP, batteryFAP
+            lastHealingMH, lastHealingOH, lastHealingPower = healingMH, healingOH, healingPower
+            local function item(name) return name and ("|cFF00CCFF" .. name .. "|r") or "|cFF666666none|r" end
+            local velocityText = item(velocityMH)
+            if velocityOH then velocityText = velocityText .. " |cFF888888/|r " .. item(velocityOH) end
+            local healingText = item(healingMH)
+            if healingOH then healingText = healingText .. " |cFF888888/|r " .. item(healingOH) end
+            print("|cFF00FF00[Olia]|r |cFFFFFFFFMoonweaver equip macros updated:|r")
+            print("  |cFF00FFFF[Velocity " .. tostring(velocitySP or 0) .. " SP]|r " .. velocityText)
+            print("  |cFF00FF00[Battery " .. tostring(batteryFAP or 0) .. " FAP]|r " .. item(batteryMH))
+            print("  |cFFFF69B4[Healing " .. tostring(healingPower or 0) .. "]|r " .. healingText)
+        end
+        return
+    end
+
+    if engClass ~= "WARRIOR" then return end
     
     local best2H = jungle.GetBest2HWeapon and jungle.GetBest2HWeapon() or nil
     local best1H = jungle.GetBest1HWeapon and jungle.GetBest1HWeapon() or nil
@@ -799,6 +947,12 @@ function Hotkeys:DumpBindings()
         end
     end
 
+    if self.StaticAliases then
+        for _, alias in ipairs(self.StaticAliases) do
+            AddEntry("GLOBAL", "StaticAlias", alias.id, alias.key)
+        end
+    end
+
     for className, spellList in pairs(self.ClassSpells) do
         local keyIndex = 1
         for _, spellData in ipairs(spellList) do
@@ -812,15 +966,25 @@ function Hotkeys:DumpBindings()
     print("|cFF00FF00[Hotkeys]|r Dump Complete. " .. count .. " items.")
 end
 
+Hotkeys:RefreshActionRanges()
 Hotkeys:CreateStaticBar()
 Hotkeys:CreateDynamicBar()
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("SPELLS_CHANGED")
 f:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 f:RegisterEvent("BAG_UPDATE_DELAYED")
+f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:SetScript("OnEvent", function(self, event) 
+    if event == "SPELLS_CHANGED" or event == "PLAYER_ENTERING_WORLD"
+    or event == "ACTIVE_TALENT_GROUP_CHANGED"
+    or (event == "PLAYER_REGEN_ENABLED" and Hotkeys.actionRangesDirty) then
+        Hotkeys:RefreshActionRanges()
+    end
+
     if event == "PLAYER_ENTERING_WORLD" then
         OliaDebugLog = {} 
         Hotkeys:DumpBindings()
@@ -828,7 +992,8 @@ f:SetScript("OnEvent", function(self, event)
         print("|cFF00FF00[Olia]|r System Ready: Logs Cleared & Bindings Exported.")
     end
     
-    if event == "BAG_UPDATE_DELAYED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+    if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_EQUIPMENT_CHANGED"
+    or event == "GET_ITEM_INFO_RECEIVED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
         if InCombatLockdown() then
             equipMacrosDirty = true
         else
@@ -847,3 +1012,6 @@ f:SetScript("OnEvent", function(self, event)
         end)
     end
 end)
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(f, "hotkeyMaintenance")

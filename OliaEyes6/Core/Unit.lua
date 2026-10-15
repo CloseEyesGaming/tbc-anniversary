@@ -85,8 +85,10 @@ local function EnsureEnemyNameplateAoEAuraSets()
 end
 
 local function HasDirectMatchingAura(unit, filter, names)
+    if jungle.RaidTrace.sample then jungle.RaidTrace:Count("nameplateAuraScans") end
     if not C_UnitAuras or not C_UnitAuras.GetAuraDataByIndex then return false end
     for index = 1, 40 do
+        if jungle.RaidTrace.sample then jungle.RaidTrace:Count("nameplateAuraSlots") end
         local aura = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
         if not aura then break end
         if names[aura.name] then return true end

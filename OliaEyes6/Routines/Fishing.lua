@@ -1,5 +1,8 @@
 local Jungle, jungle = ...
 local unitCache = jungle.unitCache
+jungle.RoutineAllows = jungle.RoutineAllows or function() return true end
+local emptyFishingRows = {}
+local fishingRows = {{"Lure", "Lure", false}, {"Fishing", "Fishing", false}}
 
 local FISHING_DELETE_ITEM_IDS = {
     [27422] = true, -- Barbed Gill Trout
@@ -81,17 +84,18 @@ end
 
 local function Fishing()
     -- Prevent actions if currently casting (e.g. Lure)
+    local routineActions = jungle.RoutineContext and not jungle.RoutineContext.allEnabled and jungle.RoutineContext.actions
     local castingName = UnitCastingInfo("player")
     if castingName then
         jungle.lastLureTime = GetTime()
         jungle.lastLureAttemptTime = GetTime() -- Reset attempt time to match actual casting state
-        return {}
+        return emptyFishingRows
     end
 
     local hasMainHandEnchant, mainHandExpiration, mainHandEnchantID, hasOffHandEnchant, offHandExpiration, offHandEnchantID = GetWeaponEnchantInfo()
 
     -- Prevent double casting Lure due to server-client synchronization delay
-    local isLureActive = hasMainHandEnchant
+    local isLureActive = not (not routineActions or routineActions["Lure"] ~= false) or hasMainHandEnchant
     if jungle.lastLureTime and (GetTime() - jungle.lastLureTime < 15) then
         isLureActive = true
     end
@@ -119,24 +123,8 @@ local function Fishing()
         end
     end
 
-    local set = {
-		[1]= {'',
-			'Lure',
-			(
-				not isLureActive
-			),
-			1, 
-			0 
-		},			
-		[2]= {'',
-			'Fishing',
-			(
-				not jungle.IsFishing()
-			),
-			1, 
-			0 
-		},			
-	}
-	return set
+    fishingRows[1][3] = (not routineActions or routineActions["Lure"] ~= false) and not isLureActive
+    fishingRows[2][3] = (not routineActions or routineActions["Fishing"] ~= false) and not jungle.IsFishing()
+    return fishingRows
 end
 jungle.Fishing = Fishing

@@ -226,3 +226,6 @@ function jungle.EnemyPlayerSpec(unitid)
     
     return nil
 end
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(frame, "arenaSpec")

@@ -257,3 +257,6 @@ local function getDR(_target, _dr_table)
 	return dr
 end
 jungle.getDR = getDR
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(f, "diminishingReturns")

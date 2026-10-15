@@ -199,3 +199,6 @@ end
 jungle.isTargetInLos = function(unit) return Los:IsUnitBlocked(unit) end
 jungle.UnitIsBehindMe = function(unit) return Los:IsUnitBehindMe(unit) end
 jungle.ImNotBehindUnit = function(unit) return Los:ImNotBehindUnit(unit) end
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(frame, "lineOfSight")

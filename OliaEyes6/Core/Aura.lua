@@ -60,6 +60,7 @@ local function ScanAuras(unit, filter)
     local now = GetTime()
     local expired = state.nextExpiry and now >= state.nextExpiry
 
+    if jungle.RaidTrace.sample then jungle.RaidTrace:Count("genericAuraQueries") end
     -- Event-invalidated hit: unchanged finite and permanent auras remain reusable
     -- across frames. Expiry is still checked synchronously before each query.
     if state.initialized and not state.dirty and not expired then
@@ -68,18 +69,24 @@ local function ScanAuras(unit, filter)
 
     -- Refresh only the requested filter. UnitsData invalidates this cache from
     -- UNIT_AURA and from its staggered missed-event audit.
+    local traceStart = jungle.RaidTrace.sample and debugprofilestop()
     cache.tick = jungle.currentTick
     wipe(db)
     local nextExpiry
     for i = 1, 40 do
-        local name, icon, count, debuffType, duration, expirationTime, source, _, _, spellId = UnitAura(unit, i, normalizedFilter)
+        if traceStart then jungle.RaidTrace:Count("genericAuraSlots") end
+        local name, icon, count, debuffType, duration, expirationTime, source,
+            _, _, spellId, _, _, _, _, _, value1, value2, value3 = UnitAura(unit, i, normalizedFilter)
         if not name then break end
         db[name] = {
             count = count,
             expiration = expirationTime,
             source = source,
             type = debuffType,
-            id = spellId
+            id = spellId,
+            value1 = value1,
+            value2 = value2,
+            value3 = value3,
         }
         if expirationTime and expirationTime > 0
         and (not nextExpiry or expirationTime < nextExpiry) then
@@ -90,6 +97,7 @@ local function ScanAuras(unit, filter)
     state.initialized = true
     state.dirty = false
     state.nextExpiry = nextExpiry
+    if traceStart then jungle.RaidTrace:Detail("genericAuraScan", debugprofilestop() - traceStart) end
     return cache
 end
 
@@ -116,6 +124,31 @@ local function Debuff(_aura, _target, _sourceFilter, _remTime, _minStacks)
     return true
 end
 jungle.Debuff = Debuff
+
+-- Remaining seconds for a matching harmful aura; absent auras return zero.
+local function DebuffRemainingTime(aura, target, sourceFilter)
+    local data = GetAuraData(target, aura, "HARMFUL")
+    if not data then return 0 end
+    if sourceFilter and sourceFilter ~= '' and data.source ~= "player" then return 0 end
+    if data.expiration == 0 then return math.huge end
+    return math.max(0, data.expiration - GetTime())
+end
+jungle.DebuffRemainingTime = DebuffRemainingTime
+
+-- Returns the three effect values exposed by UnitAura for a harmful aura.
+-- Talents that modify an aura's effects (for example Improved Faerie Fire)
+-- are reflected in these values.
+local function DebuffEffectValues(_aura, _target, _sourceFilter)
+    local data = GetAuraData(_target, _aura, "HARMFUL")
+    if not data then return nil end
+
+    if _sourceFilter and _sourceFilter ~= '' and data.source ~= "player" then
+        return nil
+    end
+
+    return data.value1, data.value2, data.value3
+end
+jungle.DebuffEffectValues = DebuffEffectValues
 
 -- Checks for a HELPFUL aura (Buff) - Optimized for Lifebloom/Rejuv
 local function Buff(_aura, _target, _sourceFilter, _remTime, _minStacks)

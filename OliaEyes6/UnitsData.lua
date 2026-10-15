@@ -264,6 +264,7 @@ local activeBuffData
 local activeBuffUnit
 
 local function ParseDebuffAura(debuff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
+    if jungle.RaidTrace.sample then jungle.RaidTrace:Count("categorizedDebuffAuras") end
     local data = activeDebuffData
     if UNIT_IGNORE_DEBUFF_SET[debuff] then
         injectAura(data.unitIgnore, debuff, count, expirationTime, source)
@@ -298,6 +299,7 @@ local function debuffParse(unit)
 end
 
 local function ParseBuffAura(buff, _, count, dispelType, duration, expirationTime, source, isStealable, _, spellId, _, _, castByPlayer, ...)
+    if jungle.RaidTrace.sample then jungle.RaidTrace:Count("categorizedBuffAuras") end
     local data = activeBuffData
     if source == 'player' then
         injectAura(data.player, buff, count, expirationTime, source)
@@ -360,6 +362,7 @@ end
     -- u.hotScore = score
 -- end
 local function RefreshUnitAuras(unit, u)
+    local traceStart = jungle.RaidTrace.sample and debugprofilestop()
     if InvalidateAuraCache then
         InvalidateAuraCache(unit)
     end
@@ -371,6 +374,7 @@ local function RefreshUnitAuras(unit, u)
     activeAuraUnitData = nil
     u.auraInitialized = true
     auraDirty[unit] = nil
+    if traceStart then jungle.RaidTrace:Detail("categorizedAuraRefresh", debugprofilestop() - traceStart) end
 end
 
 local function ApplyAuraDerivedState(unit, maxHP)
@@ -422,12 +426,20 @@ local function UpdateUnitAuras(unit, maxHP, now, auditToken)
     local u = unitCache[unit]
     local expired = u.nextAuraExpiry and now >= u.nextAuraExpiry
     if not u.auraInitialized or auraDirty[unit] or unit == auditToken or expired then
+        if jungle.RaidTrace.sample then
+            local reason = not u.auraInitialized and "auraRefreshInitial"
+                or auraDirty[unit] and "auraRefreshDirty"
+                or expired and "auraRefreshExpired" or "auraRefreshAudit"
+            jungle.RaidTrace:Count(reason)
+        end
         RefreshUnitAuras(unit, u)
     end
     ApplyAuraDerivedState(unit, maxHP)
 end
 
 local function cacheUnitData(unit, _identificator, playerName)
+    local traceStart = jungle.RaidTrace.sample and debugprofilestop()
+    if jungle.RaidTrace.sample then jungle.RaidTrace:Count("unitDataUpdates") end
     local isNew = false
     if not unitCache[unit] then
         unitCache[unit] = InitUnitTable()
@@ -464,6 +476,7 @@ local function cacheUnitData(unit, _identificator, playerName)
     u.missingHP = missingHP
     -- Groups players by 500 HP tiers (0-499=0, 500-999=1, etc.)
     u.hpBucket = math.floor(missingHP / 500)
+    if traceStart then jungle.RaidTrace:Detail("unitFacts", debugprofilestop() - traceStart) end
     return maxHP
 end
 jungle.cacheUnitData = cacheUnitData
@@ -745,3 +758,7 @@ function GetTokenByGUID(targetGUID)
     return nil
 end
 jungle.GetTokenByGUID = GetTokenByGUID
+
+-- Opt-in event timing; original scripts remain installed while tracing is off.
+jungle.RaidTrace:WatchEventFrame(auraEventFrame, "unitAuras")
+jungle.RaidTrace:WatchEventFrame(availabilityEventFrame, "availability")

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OliaEyes6 Routines and Overlay"
+  short_description: "Keep routines, profiles, and overlay controls in sync"
+  default_prompt: "Use $oliaeyes6-routines-overlay to develop or review a routine and keep its metadata, toggles, profiles, and overlay synchronized."

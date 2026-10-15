@@ -181,6 +181,7 @@ local ccImmunityBuffs = {
 }
 jungle.ccImmunityBuffs = ccImmunityBuffs
 
+
 local spellsBigHealsInterrupt = {
 	"Greater Heal",
 	"Heal",

@@ -21,25 +21,7 @@ function Engine:Initialize()
     self.rotation = jungle.Rotation:new()
     self.pixel = jungle.Pixel:new()
     self.pixelReset = jungle.Pixel:new({0,0,0}, 1)
-    -- Routine modules load after Engine.lua, so capture their function references
-    -- here, once the full addon has finished loading.
-    self.rotationSets = {
-        fishing = {jungle.Fishing},
-        druidUniversal = {jungle.dispellSet, jungle.universalHealSetV6},
-        warriorArmsPveMaintenance = {jungle.warriorArmsPveMaintenance},
-        warriorArms = {jungle.warriorArms},
-        warriorThread3AoE = {jungle.warriorThread3AoE},
-        follower = {jungle.followerSet},
-        druidBuff = {jungle.buffSet},
-        druidPvP = {jungle.universalPvPMatrix},
-        druidHeal = {jungle.universalHealSetV6},
-        druidDispel = {jungle.dispellSet},
-        druidRaid = {jungle.tankRollSet2, jungle.raidHealSet2},
-        druidDps = {jungle.druid_interrupt, jungle.dpsSet},
-        warriorUniversal = {jungle.warriorUniversal},
-        warriorTank = {jungle.warriorTank},
-        rogueDps = {jungle.rogueDpsSet},
-    }
+    self.rotationSets = jungle.RoutineConfig and jungle.RoutineConfig.definitions
     if jungle.Arena then
         jungle.Arena:Initialize()
     end
@@ -48,7 +30,19 @@ function Engine:Initialize()
 end
 
 function Engine:SetThread(threadID)
+    if type(threadID) ~= "number" or threadID < 0 or threadID > 7 or threadID ~= math.floor(threadID) then return false end
     self.activeThread = threadID
+    local config=jungle.RoutineConfig
+    if config and config.ready then config:ResetDecisionState()
+    else
+        if jungle.ResetDruidEquipAttemptState then jungle.ResetDruidEquipAttemptState() end
+        if jungle.ResetWarriorRoutineState then jungle.ResetWarriorRoutineState() end
+        if jungle.ResetDruidRoutineState then jungle.ResetDruidRoutineState() end
+        if jungle.WarriorAdaptive then jungle.WarriorAdaptive:ResetConfiguration() end
+        if jungle.CurrentCast then jungle.CurrentCast.configEntry=nil end
+    end
+    if jungle.RoutineConfig and jungle.RoutineConfig.ready then jungle.RoutineConfig:RefreshUI() end
+    return true
 end
 
 function Engine:ProcessRotation()
@@ -56,8 +50,6 @@ function Engine:ProcessRotation()
     self.pixelReset:clear()
     
     local engClass = GetPlayerClass()
-    local rot = self.rotation
-    local sets = self.rotationSets
 
     -- ==========================================
     -- GLOBAL INTERCEPTORS
@@ -65,8 +57,10 @@ function Engine:ProcessRotation()
     if engClass == "DRUID" then
         local castingName = UnitCastingInfo("player")
         if castingName then
+            if jungle.RaidTrace.enabled then jungle.RaidTrace.rotationState = "casting" end
             -- We pass 1 and 10 as priority bounds (safely covers our rotation sizes)
             if jungle.CurrentCastStop(castingName, 1, 10) then
+                if jungle.RaidTrace.enabled then jungle.RaidTrace.rotationState = "stopcasting" end
                 return jungle.Cast:CastSpell("Stopcasting", "player", 1)
             end
             -- If we are casting and shouldn't stop, we return early so we don't start a new cast
@@ -74,128 +68,59 @@ function Engine:ProcessRotation()
         end
     end
 
-    -- ==========================================
-    -- THREAD 7: UNIVERSAL DISPATCHER
-    -- ==========================================
-    if self.activeThread == 7 then
-        if IsEquippedItemType("Fishing Poles") then
-            if rot:rotate(sets.fishing, 1) then return end
-        else
-            if engClass == "DRUID" then
-                local isDrinking = jungle.unitCacheBuff("player", "Drink") or jungle.unitCacheBuff("player", "Refreshment")
-                local manaPercent = UnitPowerMax("player", 0) > 0 and (UnitPower("player", 0) / UnitPowerMax("player", 0)) or 1
-                if isDrinking and manaPercent < 0.8 then
-                    return true -- Skip thread 7 actions to not interrupt drinking
-                end
-            end
-            
-            -- 1. Class-specific Support/Combat (PRIORITY)
-            if engClass == "DRUID" then
-                if rot:rotate(sets.druidUniversal, 1) then return true end
-            elseif engClass == "WARRIOR" then
-                if rot:dpsRotate(sets.warriorArmsPveMaintenance, 1) then return true end
-                if rot:dpsRotate(sets.warriorArms, 1) then return true end
-            end
-            
-            -- 2. Follower movement and mounting, after urgent class support.
-            if rot:rotate(sets.follower, 1) then return true end
-
-            -- Druid follower buffs are the final priority in this thread.
-            -- Reuse the same routine exposed by the dedicated buff thread (6).
-            if engClass == "DRUID" then
-                if rot:rotate(sets.druidBuff, 1) then return true end
-            end
-        end
-        return true -- Thread 7 complete
-    end
-    
-    -- ==========================================
-    -- CLASS SPECIFIC THREADS
-    -- ==========================================
-    if engClass == "DRUID" then
-		if self.activeThread == 1 then
-			if rot:rotate(sets.druidPvP, 1) then return true end
-		elseif self.activeThread == 2 then
-			if rot:rotate(sets.druidHeal, 1) then return true end
-		elseif self.activeThread == 3 then
-			if rot:rotate(sets.druidDispel, 1) then return true end
-		elseif self.activeThread == 4 then
-			if rot:rotate(sets.druidRaid, 1) then return true end
-		elseif self.activeThread == 5 then -- Baseline DPS Thread
-			if rot:dpsRotate(sets.druidDps, 1) then return true end
-		elseif self.activeThread == 6 then 
-			if rot:rotate(sets.druidBuff, 1) then return true end
-		end
-    elseif engClass == "WARRIOR" then
-        if self.activeThread == 1 then
-            if rot:dpsRotate(sets.warriorArmsPveMaintenance, 1) then return true end
-            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end        
-		elseif self.activeThread == 2 then
-            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end
-        elseif self.activeThread == 3 then
-            local threadTarget = nil
-            if UnitExists('target') and UnitCanAttack('player', 'target') and not UnitIsDeadOrGhost('target') then
-                threadTarget = 'target'
-            elseif UnitExists('softenemy') and UnitCanAttack('player', 'softenemy') and not UnitIsDeadOrGhost('softenemy') then
-                threadTarget = 'softenemy'
-            end
-
-            if threadTarget and jungle.WarriorThread3OwnsTarget(threadTarget) then
-                if rot:dpsRotate(sets.warriorThread3AoE, 1) then return true end
-                return true -- Hold the tick while Thread 3 is intentionally pooling.
-            end
-            if rot:dpsRotate(sets.warriorUniversal, 1) then return true end
-        elseif self.activeThread == 5 then
-            if rot:dpsRotate(sets.warriorTank, 1) then return true end
-        end
-    elseif engClass == "ROGUE" then
-        if self.activeThread == 5 then
-            if rot:dpsRotate(sets.rogueDps, 1) then return true end
-        end
-    end
+    local config = jungle.RoutineConfig
+    if config and config.ready then return config:Run(self) end
+    return false
 end
 
 function Engine:OnUpdateProfiled(sinceLastUpdate)
+    local trace = jungle.RaidTrace
+    local tracing = trace.enabled and trace:BeginFrame(sinceLastUpdate)
+    if not tracing and not Perf.enabled then return self:OnUpdate(sinceLastUpdate) end
     local frameStart = DebugProfileStop()
     jungle.currentTick = (jungle.currentTick or 0) + 1
 
     local sectionStart = DebugProfileStop()
     jungle.updateUnitsData()
-    Perf:Record("units", DebugProfileStop() - sectionStart)
+    local unitsTime = DebugProfileStop() - sectionStart
+    local housekeepingTime, arenaTime
 
-    -- Expiry checks remain time-aware at query time. This sweep only reclaims
-    -- stale cache entries and therefore does not need to run every frame.
     housekeepingElapsed = housekeepingElapsed + (sinceLastUpdate or 0)
     if housekeepingElapsed >= HOUSEKEEPING_INTERVAL then
         local housekeepingStart = DebugProfileStop()
         housekeepingElapsed = housekeepingElapsed - HOUSEKEEPING_INTERVAL
         local now = GetTime()
-        if jungle.Los then
-            jungle.Los:OnUpdate(now)
-        end
+        if jungle.Los then jungle.Los:OnUpdate(now) end
         jungle.subTableTimerRemove(Controlled_Root_table, 18)
         jungle.subTableTimerRemove(Controlled_Stun_table, 18)
         jungle.subTableTimerRemove(Disorient_table, 18)
         jungle.subTableTimerRemove(Incapacitate_table, 18)
         jungle.subTableTimerRemove(Silence_table, 18)
-        Perf:Record("housekeeping", DebugProfileStop() - housekeepingStart)
+        housekeepingTime = DebugProfileStop() - housekeepingStart
     end
 
     if jungle.Arena then
         local arenaStart = DebugProfileStop()
         jungle.Arena:OnUpdate()
-        Perf:Record("arena", DebugProfileStop() - arenaStart)
+        arenaTime = DebugProfileStop() - arenaStart
     end
 
     sectionStart = DebugProfileStop()
     self:ProcessRotation()
     local frameEnd = DebugProfileStop()
-    Perf:Record("rotation", frameEnd - sectionStart)
-    Perf:Record("engine", frameEnd - frameStart)
+    local rotationTime, engineTime = frameEnd - sectionStart, frameEnd - frameStart
+    if Perf.enabled then
+        Perf:Record("units", unitsTime)
+        if housekeepingTime then Perf:Record("housekeeping", housekeepingTime) end
+        if arenaTime then Perf:Record("arena", arenaTime) end
+        Perf:Record("rotation", rotationTime)
+        Perf:Record("engine", engineTime)
+    end
+    if tracing then trace:EndFrame(engineTime, unitsTime, rotationTime, housekeepingTime, arenaTime) end
 end
 
 function Engine:OnUpdate(sinceLastUpdate)
-    if Perf.enabled then
+    if Perf.enabled or jungle.RaidTrace.enabled then
         return self:OnUpdateProfiled(sinceLastUpdate)
     end
 
